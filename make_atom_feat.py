@@ -9,8 +9,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 import pandas as pd
 from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import LabelEncoder
-
 from utils.parse_args import get_args
 from utils.generateGraph import generate_residue_graph
 from utils.resFeature import getAAOneHotPhys
@@ -41,9 +39,6 @@ if __name__ == '__main__':
     resfeat=getAAOneHotPhys()
 
     maxlen=0
-    le = LabelEncoder()
-    atom_sysmol=['H','Br', 'Cs', 'Se', 'N', 'Cd', 'O', 'Ni', 'Sr', 'I', 'S', 'Mn', 'K', 'Na', 'C', 'Cu', 'Ca', 'Cl', 'P', 'Co', 'Hg', 'Fe', 'Zn', 'Mg', 'F']
-    le.fit(atom_sysmol)
     for pdbname in complexdict.keys():
         # if pdbname != '4fzv':   continue
         #local redisue
@@ -58,18 +53,11 @@ if __name__ == '__main__':
             chain=pdb_chains.split('_')[1]
             for k,v in atom_feat.items():
                 feat=[]
-                feat.append([le.transform([v[0]])[0]])
-                feat.append([v[2]])
-                feat.append([v[4]])
-                if(v[5]==True):
-                    feat.append([1.])
-                else:
-                    feat.append([0.])
-                if(v[7]==True):
-                    feat.append([1.])
-                else:
-                    feat.append([0.])
-                feat.append(v[8])
+                feat.append(v[0])
+                feat.append([v[1]])
+                feat.append(v[2])
+                feat.append(v[3])
+                feat.append([v[4],v[5],v[6],v[7],v[8],v[9],v[10]])
                 node_feature[chain+'_'+str(k)]=feat
         # print(node_feature)
         node_features, edge_index,edge_attr=generate_residue_graph(pdbname,node_feature,connect,args.padding)
