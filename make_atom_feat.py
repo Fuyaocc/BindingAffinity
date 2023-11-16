@@ -22,7 +22,6 @@ if __name__ == '__main__':
 
     complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
     
-    
     files=os.listdir("/home/ysbgs/xky/contact_graph/")
     pdb_atom_graph=set()
     for file in files:
