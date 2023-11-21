@@ -60,20 +60,9 @@ def gcn_train(model,dataloader,optimizer,criterion,device,i,epoch,outDir,epsilon
         optimizer.zero_grad()
         label = data.y
         names=data.name
-
-        # sample,sample_adv,pre,pre_adv=model(data,True,device)
         pre = model(data,False,device)
-
-        # summary(model,(data.x,data.edge_index,data.batch,data.edge_attr))
         pre=pre.to(torch.float32)
         label=label.unsqueeze(-1).to(torch.float32).to(device)
-        # normal_loss = criterion(pre, label)
-        # mseloss_adv=F.mse_loss(pre_adv,label)
-        # jsloss_adv=js_div(sample,sample_adv)
-        # loss_adv=(1-epsilon)*mseloss_adv+epsilon*jsloss_adv
-
-        # #总loss
-        # total_loss = alpha * loss_adv + (1 - alpha) * normal_loss
         total_loss = criterion(pre,label)
         for i in range(pre.shape[0]):
             prelist.append(float(pre[i][0]))
@@ -86,39 +75,22 @@ def gcn_train(model,dataloader,optimizer,criterion,device,i,epoch,outDir,epsilon
             f.write('\n')
         total_loss.backward()
         optimizer.step()
-        # for param in model.parameters():
-        #     logging.info(param.grad)
         epoch_loss += (total_loss.detach().item())
-        # epoch_normal_mse +=normal_loss
-        # epoch_against_mse+=mseloss_adv
-        # epoch_against_js+=jsloss_adv
-        
     epoch_loss /= (batch_id+1)
-    # epoch_normal_mse /= (batch_id+1)
-    # epoch_against_mse /= (batch_id+1)
-    # epoch_against_js /= (batch_id+1)
-    
-    # return model,prelist,truelist,epoch_loss,epoch_normal_mse,epoch_against_mse,epoch_against_js
     return model,prelist,truelist,epoch_loss
 
 def mpnn_train(model,dataloader,optimizer,criterion,device,i,epoch,outDir,epsilon,alpha,kl_loss):
     model.train()
-    model.to(device)
     prelist = []
     truelist = []
     epoch_loss=0.0
     for batch_id,data in enumerate(dataloader):
         optimizer.zero_grad()
+        data = data.to(device)
         label = data.y
-        # distillation_label = data.distillation_y
-        # names=data.name
         pre=model(data,True,device)
         pre=pre.to(torch.float32)
         label=label.unsqueeze(-1).to(torch.float32).to(device)
-        # distillation_label=distillation_label.unsqueeze(-1).to(torch.float32).to(device)
-        # log_predictions = F.log_softmax(pre)
-        # log_targets = F.log_softmax(distillation_label)
-        # loss=alpha*criterion(pre,label)+(1-alpha)*kl_loss(log_predictions,log_targets)
         loss = criterion(pre,label)
         for i in range(pre.shape[0]):
             prelist.append(float(pre[i][0]))
@@ -138,10 +110,8 @@ def mpnn_train(model,dataloader,optimizer,criterion,device,i,epoch,outDir,epsilo
     
     return model,prelist,truelist,epoch_loss
 
-
 def run_predict(model,dataloader,criterion,device,i,epoch,num_layers):
     model.eval()
-    model.to(device)
     epoch_loss=0
     dataitr=iter(dataloader)
     prelist = []
@@ -169,13 +139,13 @@ def run_predict(model,dataloader,criterion,device,i,epoch,num_layers):
 
 def gcn_predict(model,dataloader,criterion,device,i,epoch):
     model.eval()
-    model.to(device)
     epoch_loss=0
     # f=open(f'./tmp/test/val{i}/test_'+str(epoch)+'.txt','w')
     prelist = []
     truelist = []
     names = []
     for batch_id,data in enumerate(dataloader):
+        data = data.to(device)
         label = data.y        
         pre=model(data,False,device)
         pre=pre.to(torch.float32)
