@@ -42,10 +42,15 @@ def generate_residue_graph(pdb_file,featuredict,connect,padding):
         graph.add_node(k,embedding=emb)
 
     for k,v in connect.items():
+        if k not in featuredict.keys():
+                continue
         for x in v:
             resName=x.split("=")[0]
-            # print(resName)
+            if resName not in featuredict.keys():
+                continue
             distance=(float)(x.split("=")[1])
+            if k not in featuredict.keys():
+                continue
             graph.add_edge(k,resName,weight=distance,undirected=True)
 
     # 输出图的基本信息

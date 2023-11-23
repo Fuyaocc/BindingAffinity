@@ -56,7 +56,7 @@ if __name__ == '__main__':
     for i in range(5):
         net=Net(input_dim=args.dim
                         ,hidden_dim=64
-                        ,output_dim=32)
+                        ,output_dim=64)
         net.to(args.device)
         net.load_state_dict(torch.load(f"./models/saved/gcn/affinity_model{i}_dim{args.dim}_foldx.pt"))
         dataset=MyGCNDataset(featureList)

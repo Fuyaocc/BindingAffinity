@@ -18,5 +18,4 @@ models/saved/*
 tmp/
 #files
 test.py
-run.sh
 take.py

@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     pdbs={}
     exist_pdb=set()
-    # files=os.listdir('/home/ysbgs/xky/bindingaffinity/data/skempi/seq_emb/')
+    files=os.listdir('/home/ysbgs/xky/bindingaffinity/data/skempi/seq_emb/')
     for file in files:
         exist_pdb.add(file.split('.')[0])
     with open(args.input,'r') as f:

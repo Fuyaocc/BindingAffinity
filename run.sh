@@ -1,0 +1,1 @@
+python affinity_mpnn_atom.py --device cuda:0 --epoch 2000 --batch_size 2048 --dim 25 --logdir=./log/general/val
