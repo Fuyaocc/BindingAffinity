@@ -46,12 +46,14 @@ class Net(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(Net, self).__init__()
         
-        self.mpnn = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.5)
+        self.mpnn_0 = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=hidden_dim, drop_weight=0.2)
+        # self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=hidden_dim, drop_weight=0.2)
+        self.mpnn_2 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.2)
 
         self.lin = torch.nn.Sequential(
             nn.Linear(output_dim, output_dim),
             nn.BatchNorm1d(output_dim),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             nn.LeakyReLU(),
             nn.Linear(output_dim, 1),
         )
@@ -59,7 +61,10 @@ class Net(nn.Module):
     def forward(self, data, mode=True):
         x = self.mpnn_0(data.x,data.edge_index)
         x = F.leaky_relu(x)
-        e = data.energy.reshape(x.shape[0],21)
-        x = torch.cat([x,e],dim=1)
+        # x = self.mpnn_1(x,data.edge_index)
+        # x = F.leaky_relu(x)
+        x = self.mpnn_2(x,data.edge_index)
+        x = F.leaky_relu(x)
+        x = global_max_pool(x, data.batch)
         x = self.lin(x)
         return x

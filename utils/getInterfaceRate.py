@@ -9,6 +9,7 @@ import sys
 import os
 import pymol
 from pymol import cmd
+import math
 
 def addConnect(connect,x,y,dis):
     if(x not in connect.keys()):
@@ -38,11 +39,11 @@ def getinterfaceWithPymol(pdbPath,threshold=3.5):
         if(at1.resn=='UNK'):
             res1=at1.chain+"_X"+str(at1.resi)
         else:
-            res1=at1.chain+"_"+Bio.PDB.Polypeptide.protein_letters_3to1[at1.resn]+str(at1.resi)
+            res1=at1.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at1.resn)+str(at1.resi)
         if(at2.resn=="UNK"):
             res2=at2.chain+"_X"+str(at2.resi)
         else:
-            res2=at2.chain+"_"+Bio.PDB.Polypeptide.protein_letters_3to1[at2.resn]+str(at2.resi)
+            res2=at2.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at2.resn)+str(at2.resi)
 
         if res1 != res2  and res1[0]!=res2[0]:
             if(res1[0] not in interfaceRes.keys()):
@@ -94,7 +95,7 @@ def getInterfaceRateAndSeq(pdbPath,interfaceDis=8,mutation=None):
                 if resName == "UNK":#UNK 未知
                     resName = "X"
                 else:
-                    resName = Bio.PDB.Polypeptide.protein_letters_3to1[resName]
+                    resName = Bio.PDB.Polypeptide.three_to_one(resName)
             except KeyError:  #不正常的resName
                 continue
             try:
@@ -123,8 +124,7 @@ def getInterfaceRateAndSeq(pdbPath,interfaceDis=8,mutation=None):
     #计算distance map
     CACoor=np.array(CACoor)
     dis =  np.linalg.norm(CACoor[:, None, :] - CACoor[None, :, :], axis=-1)
-    mask = dis<=interfaceDis
-    inside = dis<=4.5
+    # mask = dis<=interfaceDis
     resNumber=len(CAResName)
     #统计interface residue数量
     interfaceRes,pyconnect=getinterfaceWithPymol(pdbPath)
@@ -133,32 +133,29 @@ def getInterfaceRateAndSeq(pdbPath,interfaceDis=8,mutation=None):
             interfaceRes[chain]=set()
     connect={}
 
-    if mutation != None: #YI36A
-        for mut in mutation:
-            res=mut[1]+'_'+mut[-1]+mut[2:-1]
-            idx=int(mut[2:-1])
-            interfaceRes[mut[1]].add(res)
-            for j in range(idx+1,resNumber):
-                if mask[idx-1][j]:
-                    if CAResName[idx-1][0] != CAResName[j][0] :
-                        interfaceRes[CAResName[idx-1][0]].add(CAResName[idx-1])
-                        interfaceRes[CAResName[j][0]].add(CAResName[j])
-                        connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
+    # if mutation != None: #YI36A
+    #     for mut in mutation:
+    #         res=mut[1]+'_'+mut[-1]+mut[2:-1]
+    #         idx=int(mut[2:-1])
+    #         interfaceRes[mut[1]].add(res)
+    #         for j in range(idx+1,resNumber):
+    #             if mask[idx-1][j]:
+    #                 if CAResName[idx-1][0] != CAResName[j][0] :
+    #                     interfaceRes[CAResName[idx-1][0]].add(CAResName[idx-1])
+    #                     interfaceRes[CAResName[j][0]].add(CAResName[j])
+    #                     connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
 
     for i in range(resNumber):
         for j in range(i+1,resNumber):            
-            #两条链属于同一个chain group
-            if inside[i][j]:    
-                if CAResName[i][0] == CAResName[j][0]:
-                    if(CAResName[i] in interfaceRes[CAResName[i][0]] and CAResName[j] in interfaceRes[CAResName[j][0]]):
-                        connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
+            if CAResName[i][0] == CAResName[j][0]:
+                if(abs(int(CAResName[j][3:])-int(CAResName[i][3:])) == 1 and CAResName[i] in interfaceRes[CAResName[i][0]] and CAResName[j] in interfaceRes[CAResName[j][0]]):
+                    connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
             if(CAResName[i]!=CAResName[j] and CAResName[i][0]!=CAResName[j][0]):
                 if(CAResName[i]+"_"+CAResName[j] in pyconnect or CAResName[j]+"_"+CAResName[i] in pyconnect ):
                     connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
-                        
     return complexSequence,interfaceRes,chainGroup,connect
 
 if __name__ == '__main__':
-    seq,interfaceDict=getInterfaceRateAndSeq('../data/1ay7.pdb','A_B')
+    seq,interfaceDict,_,connect=getInterfaceRateAndSeq('/mnt/data/xukeyu/data/pdbs/1ay7.pdb','A_B')
     print(seq)
-    print(interfaceDict)
+    print(connect)

@@ -13,8 +13,8 @@ from utils.parse_args import get_args
 from utils.MyDataset import MyGCNDataset,gcn_pickfold
 from utils.run_epoch import mpnn_train,gcn_predict
 from utils.resFeature import getAAOneHotPhys
-from models.affinity_net_mpnn import Net
-
+from models.affinity_net_mpnn_atom import Net
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 def collate_fn(data_list):
     return Batch.from_data_list(data_list)
@@ -55,6 +55,8 @@ if __name__ == '__main__':
     labelList=[]
     test_featureList=[]
     test_labelList=[]
+    scaler_zscore = StandardScaler()
+
     for pdbname in complexdict.keys():
         if pdbname in filter_set or pdbname in too_long:continue 
         #local redisue
@@ -68,7 +70,10 @@ if __name__ == '__main__':
             # print(x.shape)
             idx=torch.isnan(x)
             x[idx]=0.0
-
+            idx = torch.isinf(x)
+            x[idx] = float(0.0)
+            x = scaler_zscore.fit_transform(x.numpy())
+            x = torch.tensor(x).to(torch.float)
             energy = energy[:21]
             data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
 

@@ -44,7 +44,7 @@ class Pdb(object):
         return out
 
 
-    def renumber_residues(self, start=1, reset=False):
+    def renumber_residues(self, start=1, reset=True):
             """ Renumbers residues in a PDB file. """
             out = list()
             count = start - 1
