@@ -7,7 +7,6 @@ import pickle
 import sys
 import logging
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
-import esm
 import pandas as pd
 import torch.nn.functional as F
 import torch.optim.lr_scheduler as ls
@@ -68,11 +67,11 @@ if __name__ == '__main__':
             # energy=readFoldXResult(args.foldxPath,pdbname)
             # energy=torch.tensor(energy,dtype=torch.float)
             # seq,interfaceDict,chainlist,connect=getInterfaceRateAndSeq(pdb_path,interfaceDis=args.interfacedis)
-            with open('./data/graphfeat/'+pdbname+'_interfaceDict.picke', 'rb') as file:
+            with open('../graph/'+pdbname+'_interfaceDict.picke', 'rb') as file:
                 interfaceDict = pickle.load(file)
-            with open('./data/graphfeat/'+pdbname+'_connect.picke', 'rb') as file:
+            with open('../graph/'+pdbname+'_connect.picke', 'rb') as file:
                 connect = pickle.load(file)
-            with open('./data/graphfeat/'+pdbname+'_seq.picke', 'rb') as file:
+            with open('../graph/'+pdbname+'_seq.picke', 'rb') as file:
                 seq = pickle.load(file)
             chainlist=interfaceDict.keys()
             dssp=getDSSP(pdb_path)
@@ -118,88 +117,3 @@ if __name__ == '__main__':
             torch.save(edge_index.to(torch.device('cpu')),'./data/graphfeat/'+pdbname+"_edge_index"+'.pth')
             torch.save(edge_attr.to(torch.device('cpu')),'./data/graphfeat/'+pdbname+"_edge_attr"+'.pth')
     #         torch.save(energy.to(torch.device('cpu')),'./data/skempi/graphfeat/'+pdbname+"_energy"+'.pth')      
-    #     data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],name=pdbname,energy=energy)
-    #     maxlen+=1
-    #     featureList.append(data)
-    #     labelList.append(complexdict[pdbname])
-    # logging.info(maxlen)
-    # #交叉验证
-    # kf = KFold(n_splits=5,random_state=2022, shuffle=True)
-    # best_pcc=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-    # best_mse=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-    # best_rmse=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-    # best_mae=[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-    # best_epoch=[0,0,0,0,0,0,0,0,0,0]
-    # for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
-    #     net=AffinityNet(in_channels=args.dim
-    #                                ,hidden_channels=args.dim
-    #                                ,out_channels=args.dim
-    #                                ,mlp_in_channels=args.dim+21
-    #                                ,device=args.device)
-    #     net.to(args.device)
-
-    #     train_set,val_set=gcn_pickfold(featureList,train_index,test_index)
-    #     # train_set += skempi_featureList
-        
-    #     train_dataset=MyGCNDataset(train_set)
-    #     train_dataloader=DataLoader(train_dataset,batch_size=args.batch_size,shuffle=True)
-
-    #     val_dataset=MyGCNDataset(val_set)
-    #     val_dataloader=DataLoader(val_dataset,batch_size=args.batch_size,shuffle=True)
-
-    #     criterion = torch.nn.MSELoss()
-    #     optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-3)
-
-    #     writer = SummaryWriter('./log/val'+str(i))
-        
-    #     for epoch in range(args.epoch):
-    #         #train
-    #         # net,train_prelist, train_truelist, train_loss,normal_mse,against_mse,against_js= gcn_train(net,train_dataloader,optimizer,criterion,args.device,i,epoch,args.outDir,args.epsilon,args.alpha)
-    #         net,train_prelist, train_truelist, train_loss = gcn_train(net,train_dataloader,optimizer,criterion,args.device,i,epoch,args.outDir,args.epsilon,args.alpha)
-                                                                                                   
-    #         # logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss)+" ,mse = %.4f"%(normal_mse)+" ,against_mse= %.4f"%(against_mse)+" ,against_js = %.4f"%(against_js))
-    #         logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss))
-
-    #         df = pd.DataFrame({'label':train_truelist, 'pre':train_prelist})
-    #         train_pcc = df.pre.corr(df.label)
-    #         writer.add_scalar('affinity_train/loss', train_loss, epoch)
-    #         # writer.add_scalar('affinity_train/normal_mse', normal_mse, epoch)
-    #         # writer.add_scalar('affinity_train/against_mse', against_mse, epoch)
-    #         # writer.add_scalar('affinity_train/against_js', against_js, epoch)
-    #         writer.add_scalar('affinity_train/pcc', train_pcc, epoch)
-            
-    #         #val
-    #         val_prelist, val_truelist,val_loss = gcn_predict(net,val_dataloader,criterion,args.device,i,epoch)
-    #         df = pd.DataFrame({'label':val_truelist, 'pre':val_prelist})
-    #         val_pcc = df.pre.corr(df.label)
-    #         writer.add_scalar('affinity_val/loss', val_loss, epoch)
-    #         writer.add_scalar('affinity_val/pcc', val_pcc, epoch)
-    #         mae=F.l1_loss(torch.tensor(val_prelist),torch.tensor(val_truelist))
-    #         mse=F.mse_loss(torch.tensor(val_prelist),torch.tensor(val_truelist))
-    #         rmse=math.sqrt(mse)
-    #         logging.info("Epoch "+ str(epoch)+ ": val Loss = %.4f"%(val_loss)+" ,mse = %.4f"%(mse)+" ,rmse = %.4f"%(rmse)+" ,mae = %.4f"%(mae))
-    #         if rmse < 2.78 and val_pcc > best_pcc[i]:
-    #             best_pcc[i]=val_pcc
-    #             best_mse[i]=mse
-    #             best_rmse[i]=rmse
-    #             best_mae[i]=mae
-    #             best_epoch[i]=epoch
-    #             torch.save(net.state_dict(),f'./models/saved/gcn/affinity_model{i}_dim{args.dim}_foldx.pt')
-    
-    # pcc=0.
-    # mse=0.
-    # rmse=0.
-    # mae=0.
-    # for i in range(5):
-    #     pcc=pcc+best_pcc[i]
-    #     mse=mse+best_mse[i]
-    #     rmse=rmse+best_rmse[i]
-    #     mae=mae+best_mae[i]
-    #     logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mse = %.4f'%(best_mse[i])+' , best_rmse = %.4f'%(best_rmse[i])+' , best_mae = %.4f'%(best_mae[i])+' , best_epoch : '+str(best_epoch[i]))
-
-    
-    # print('pcc  :   '+str(pcc/5))
-    # print('mse  :   '+str(mse/5))
-    # print('rmse :   '+str(rmse/5))
-    # print('mae  :   '+str(mae/5))
-            

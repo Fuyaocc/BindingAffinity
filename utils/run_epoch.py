@@ -76,3 +76,14 @@ def gcn_predict(model,dataloader,criterion,args,i,epoch):
         epoch_loss += (loss.detach().item())
     epoch_loss /= (batch_id+1)
     return names,prelist,truelist,epoch_loss
+
+def boosting_predict(model,dataloader,args):
+    model.eval()
+    emb = []
+    names = []
+    for batch_id,data in enumerate(dataloader):
+        data.to(args.device)
+        pre = model(data,False)
+        emb += pre
+        names += data.name
+    return emb,names

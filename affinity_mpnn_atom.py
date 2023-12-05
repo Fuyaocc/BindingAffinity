@@ -7,7 +7,8 @@ logging.basicConfig(level=logging.DEBUG,format='%(levelname)s: %(message)s')
 import pandas as pd
 from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
-from torch_geometric.data import DataLoader,Data
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
 from utils.parse_args import get_args
 from utils.MyDataset import MyGCNDataset,gcn_pickfold
 from utils.run_epoch import mpnn_train,gcn_predict
@@ -74,9 +75,9 @@ if __name__ == '__main__':
     scaler_zscore = StandardScaler()
     for pdbname in ligand_complex_list:
         logging.info("load ligand data graph :"+pdbname)
-        x = torch.load('./data/atom_graph/ligand/'+pdbname+"_x"+'.pth').to(torch.float)
-        edge_index=torch.load('./data/atom_graph/ligand/'+pdbname+"edge_index"+'.pth').to(torch.int64)
-        edge_attr=torch.load('./data/atom_graph/ligand/'+pdbname+"_edge_attr"+'.pth').to(torch.float)
+        x = torch.load('./data/atom_graph/ligand/'+pdbname+"_x"+'.pth').to(torch.float32)
+        edge_index=torch.load('./data/atom_graph/ligand/'+pdbname+"edge_index"+'.pth').to(torch.int32)
+        edge_attr=torch.load('./data/atom_graph/ligand/'+pdbname+"_edge_attr"+'.pth').to(torch.float32)
         if(x.shape[0]==0 or edge_index.shape[0]==0 or edge_attr.shape[0]==0 ):
             continue
         idx = torch.isnan(x)
@@ -84,16 +85,16 @@ if __name__ == '__main__':
         idx = torch.isinf(x)
         x[idx] = float(0.0)
         x = scaler_zscore.fit_transform(x.numpy())
-        x = torch.tensor(x).to(torch.float)
+        x = torch.tensor(x).to(torch.float32)
         data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=ligand_complex_dict[pdbname],distillation_y=[0],name=pdbname,energy=[0])
         featureList.append(data)
         labelList.append(ligand_complex_dict[pdbname])
     
     for pdbname in general_set_complex_list:
         logging.info("load general-set data graph :"+pdbname)
-        x = torch.load('./data/atom_graph/general-set/'+pdbname+"_x"+'.pth').to(torch.float)
-        edge_index=torch.load('./data/atom_graph/general-set/'+pdbname+"edge_index"+'.pth').to(torch.int64)
-        edge_attr=torch.load('./data/atom_graph/general-set/'+pdbname+"_edge_attr"+'.pth').to(torch.float)
+        x = torch.load('./data/atom_graph/general-set/'+pdbname+"_x"+'.pth').to(torch.float32)
+        edge_index=torch.load('./data/atom_graph/general-set/'+pdbname+"edge_index"+'.pth').to(torch.int32)
+        edge_attr=torch.load('./data/atom_graph/general-set/'+pdbname+"_edge_attr"+'.pth').to(torch.float32)
         if(x.shape[0]==0 or edge_index.shape[0]==0 or edge_attr.shape[0]==0 ):
             continue
         idx = torch.isnan(x)
@@ -101,7 +102,7 @@ if __name__ == '__main__':
         idx = torch.isinf(x)
         x[idx] = float(0.0)
         x = scaler_zscore.fit_transform(x.numpy())
-        x = torch.tensor(x).to(torch.float)
+        x = torch.tensor(x).to(torch.float32)
         data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=general_set_complex_dict[pdbname],distillation_y=[0],name=pdbname,energy=[0])
         featureList.append(data)
         labelList.append(general_set_complex_dict[pdbname])
@@ -124,7 +125,7 @@ if __name__ == '__main__':
 
         criterion = torch.nn.MSELoss()
         kl_loss = torch.nn.KLDivLoss(reduction="batchmean")
-        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 0.004)
+        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 0.002)
 
         writer = SummaryWriter(args.logdir+str(i))
         
