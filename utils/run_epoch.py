@@ -3,10 +3,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 from   torch.nn  import KLDivLoss
 import torch.nn.functional as F
-import torch.nn as nn
-import time
-
-from  torchsummary import summary
 
 def js_div(p_output, q_output, get_softmax=True):
     kl_div = KLDivLoss(reduction='batchmean')
