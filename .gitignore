@@ -1,13 +1,3 @@
-#saved feature
-/data/esmfeature
-/data/pdbs
-/data/lefeature
-/data/dsspfeature
-/data/graph
-/data/graph_4A_12A
-/data/skempi
-/data/atom_graph
-/data/graphfeat
 #缓存
 __pycache__/
 #log
@@ -18,4 +8,3 @@ models/saved/*
 tmp/
 #files
 test.py
-take.py

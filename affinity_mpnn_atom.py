@@ -3,7 +3,7 @@ import re
 import torch
 import numpy as np
 import logging
-logging.basicConfig(level=logging.DEBUG,format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 import pandas as pd
 from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
@@ -151,31 +151,10 @@ if __name__ == '__main__':
                 best_pcc[i]=val_pcc
                 best_epoch[i]=epoch
                 torch.save(net.state_dict(),f'./models/saved/gcn/affinity_model{i}_dim{args.dim}.pt')
-            
-            #test
-            # test_dataset=MyGCNDataset(test_featureList)
-            # test_dataloader=DataLoader(test_dataset,batch_size=args.batch_size,shuffle=True)
-            # names,test_prelist, test_truelist,test_loss = gcn_predict(net,test_dataloader,criterion,args.device,i,0)
-            # df = pd.DataFrame({'label':test_truelist, 'pre':test_prelist})
-            # test_pcc = df.pre.corr(df.label)
-            # writer.add_scalar('affinity_val/test_loss', test_loss, epoch)
-            # writer.add_scalar('affinity_val/test_pcc', test_pcc, epoch)
-            # logging.info("Epoch "+ str(epoch)+ ": Test Loss = %.4f"%(test_loss))
-            # with open(f'./tmp/pred/result_{i}.txt','w') as f:
-            #     for j in range(0,len(test_truelist)):
-            #         f.write(names[j])
-            #         f.write('\t')
-            #         f.write(str(test_prelist[j]))
-            #         f.write('\t')
-            #         f.write(str(test_truelist[j]))
-            #         f.write('\n')
     
     pcc=0.
     mse=0.
-    rmse=0.
-    mae=0.
     for i in range(5):
         pcc=pcc+best_pcc[i]
         logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i]) +' , best_epoch : '+str(best_epoch[i]))
-    
     print('pcc  :   '+str(pcc/5))
