@@ -16,7 +16,7 @@ from utils.run_epoch import mpnn_train,gcn_predict
 from utils.resFeature import getAAOneHotPhys
 from utils.readFoldX import readFoldXResult
 from models.affinity_net_mpnn import Net
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler,StandardScaler
 
 def collate_fn(data_list):
     return Batch.from_data_list(data_list)
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     labelList=[]
     test_featureList=[]
     test_labelList=[]
-    scaler_zscore = MinMaxScaler()
+    scaler_zscore = StandardScaler()
     
     for pdbname in complexdict.keys():
         if pdbname in filter_set or pdbname in test_set:continue 

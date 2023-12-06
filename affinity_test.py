@@ -21,7 +21,7 @@ if __name__ == '__main__':
     print(args)
 
     complex_dict={}
-    with open(args.inputDir, 'r') as f:
+    with open(args.inputdir, 'r') as f:
         for line in f:
             blocks = re.split('\t|\n',line)
             ligand_name=blocks[0]
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     
     complex_list=set()
 
-    pdbs=os.listdir(args.datadir)
+    pdbs=os.listdir(args.featdir)
 
     for pdb in pdbs:
         if pdb[:4] in complex_dict.keys():
@@ -48,14 +48,14 @@ if __name__ == '__main__':
     for pdbname in complex_list:
 
         logging.info("load ligand data graph :"+pdbname)
-        x = torch.load(args.datadir+pdbname+"_x"+'.pth').to(torch.float)
-        edge_index=torch.load(args.datadir+pdbname+"_edge_index"+'.pth').to(torch.int64)
-        edge_attr=torch.load(args.datadir+pdbname+"_edge_attr"+'.pth').to(torch.float)
-        if os.path.exists(args.datadir+pdbname+"_energy"+'.pth') == False:
+        x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float)
+        edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
+        edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float)
+        if os.path.exists(args.featdir+pdbname+"_energy"+'.pth') == False:
             energy=readFoldXResult(args.foldxPath,pdbname)
             energy=torch.tensor(energy,dtype=torch.float32)
-            torch.save(energy.to(torch.device('cpu')),args.datadir+pdbname+"_energy"+'.pth')
-        energy=torch.load(args.datadir+pdbname+"_energy"+'.pth').to(torch.float).to(args.device)
+            torch.save(energy.to(torch.device('cpu')),args.featdir+pdbname+"_energy"+'.pth')
+        energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float).to(args.device)
         # print(x.shape)
         idx=torch.isnan(x)
         x[idx]=0.0
