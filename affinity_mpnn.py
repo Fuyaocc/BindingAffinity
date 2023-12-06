@@ -96,8 +96,10 @@ if __name__ == '__main__':
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
         #preprocessing Standard 标准化
         train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
-
-        scaler = StandardScaler()
+        if args.preprocess == 'standard':
+            scaler = StandardScaler()
+        else:
+            scaler = MinMaxScaler()
         train_x_tensor = torch.cat([data.x for data in train_set], dim=0)
         train_x_array = train_x_tensor.numpy()
         train_x_array_standardized = scaler.fit_transform(train_x_array)
