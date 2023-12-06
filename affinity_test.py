@@ -69,7 +69,21 @@ if __name__ == '__main__':
 
     best_pcc = 0.0
     best_mse = 0.0
+    scaler_params = np.load('./tmp/standard_params.npy')
+    test_x_tensor = torch.cat([data.x for data in featureList], dim=0)
     for i in range(5):
+        scaler = StandardScaler()
+        scaler.mean_ = scaler_params[i][0]
+        scaler.scale_ = scaler_params[i][1]
+        test_x_array_standardized = scaler.transform(test_x_tensor.numpy())
+        train_x_tensor_standardized = torch.tensor(test_x_array_standardized, dtype=torch.float32)
+        start_idx = 0
+        for data in featureList:
+            num_samples = data.x.size(0)
+            end_idx = start_idx + num_samples
+            data.x = train_x_tensor_standardized[start_idx:end_idx]
+            start_idx = end_idx
+        
         net=Net(input_dim=args.dim
                         ,hidden_dim=64
                         ,output_dim=32)
