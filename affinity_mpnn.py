@@ -88,9 +88,10 @@ if __name__ == '__main__':
     logging.info(len(featureList))
     #交叉验证
     kf = KFold(n_splits=5,random_state=2023, shuffle=True)
-    best_pcc=[0.0,0.0,0.0,0.0,0.0]
-    best_mse=[0.0,0.0,0.0,0.0,0.0]
-    best_epoch=[0,0,0,0,0]
+    best_pcc = [0.0,0.0,0.0,0.0,0.0]
+    best_mse = [0.0,0.0,0.0,0.0,0.0]
+    best_epoch = [0,0,0,0,0]
+    scaler_params = []
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
         #preprocessing Standard 标准化
         train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
@@ -106,6 +107,8 @@ if __name__ == '__main__':
             data.x = train_x_tensor_standardized[start_idx:end_idx]
             start_idx = end_idx
         
+        scaler_params.append([scaler.mean_,scaler.scale_])
+
         val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
         val_x_array = val_x_tensor.numpy()
         val_x_array_standardized = scaler.transform(val_x_array)
@@ -165,7 +168,7 @@ if __name__ == '__main__':
         mse=mse+best_mse[i]
         logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mse = %.4f'%(best_mse[i])+' , best_epoch : '+str(best_epoch[i]))
 
-    
+    np.save('./tmp/standard_params.npy',np.array(scaler_params))
     print('pcc  :   '+str(pcc/5))
     print('mse  :   '+str(mse/5))
             
