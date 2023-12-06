@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--datadir',type=str,default='/mnt/data/xukeyu/data/pdbs/',help='pdb dir')
     parser.add_argument('--featdir',type=str,default="/mnt/data/xukeyu/data/protein_protein/graph_feat/",help='complex graph node feat and edge feat dir')
     parser.add_argument('--modeldir',type=str,default="./models/saved/gcn/",help='GNN models dir')
+    parser.add_argument('--preprocess',type=str,default="standard",help='standard or minmax')
     args = parser.parse_args()
     return args
 

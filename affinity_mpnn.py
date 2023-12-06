@@ -5,6 +5,7 @@ import numpy as np
 import logging
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 import pandas as pd
+import pickle
 import torch.nn.functional as F
 from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
@@ -95,9 +96,10 @@ if __name__ == '__main__':
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
         #preprocessing Standard 标准化
         train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
+
+        scaler = StandardScaler()
         train_x_tensor = torch.cat([data.x for data in train_set], dim=0)
         train_x_array = train_x_tensor.numpy()
-        scaler = StandardScaler()
         train_x_array_standardized = scaler.fit_transform(train_x_array)
         train_x_tensor_standardized = torch.tensor(train_x_array_standardized, dtype=torch.float32)
         start_idx = 0
@@ -107,7 +109,8 @@ if __name__ == '__main__':
             data.x = train_x_tensor_standardized[start_idx:end_idx]
             start_idx = end_idx
         
-        scaler_params.append([scaler.mean_,scaler.scale_])
+        with open(f'./tmp/{args.preprocess+str(i)}_scaler.pkl', 'wb') as f:
+            pickle.dump(scaler, f)
 
         val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
         val_x_array = val_x_tensor.numpy()
