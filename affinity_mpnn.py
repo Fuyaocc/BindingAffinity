@@ -60,7 +60,6 @@ if __name__ == '__main__':
     labelList=[]
     test_featureList=[]
     test_labelList=[]
-    scaler_zscore = StandardScaler()
     
     for pdbname in complexdict.keys():
         if pdbname in filter_set or pdbname in test_set:continue 
@@ -79,8 +78,7 @@ if __name__ == '__main__':
             x[idx]=0.0
             idx = torch.isinf(x)
             x[idx] = float(0.0)
-            x = scaler_zscore.fit_transform(x.numpy())
-            x = torch.tensor(x).to(torch.float32).to(args.device)
+            x.to(args.device)
             energy = energy[:21]
             data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
 
@@ -94,13 +92,37 @@ if __name__ == '__main__':
     best_mse=[0.0,0.0,0.0,0.0,0.0]
     best_epoch=[0,0,0,0,0]
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
+        #preprocessing Standard 标准化
+        train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
+        train_x_tensor = torch.cat([data.x for data in train_set], dim=0)
+        train_x_array = train_x_tensor.numpy()
+        scaler = StandardScaler()
+        train_x_array_standardized = scaler.fit_transform(train_x_array)
+        train_x_tensor_standardized = torch.tensor(train_x_array_standardized, dtype=torch.float32)
+        start_idx = 0
+        for data in train_set:
+            num_samples = data.x.size(0)
+            end_idx = start_idx + num_samples
+            data.x = train_x_tensor_standardized[start_idx:end_idx]
+            start_idx = end_idx
+        
+        val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
+        val_x_array = val_x_tensor.numpy()
+        val_x_array_standardized = scaler.transform(val_x_array)
+        val_x_tensor_standardized = torch.tensor(val_x_array_standardized, dtype=torch.float32)
+        start_idx = 0
+        for data in val_set:
+            num_samples = data.x.size(0)
+            end_idx = start_idx + num_samples
+            data.x = val_x_tensor_standardized[start_idx:end_idx]
+            start_idx = end_idx
+
         net=Net(input_dim=args.dim
                         ,hidden_dim=64
                         ,output_dim=32)
         
         net.to(args.device)
 
-        train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
         train_dataset=MyGCNDataset(train_set)
         train_dataloader=DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
 

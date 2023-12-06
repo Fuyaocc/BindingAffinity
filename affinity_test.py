@@ -43,26 +43,23 @@ if __name__ == '__main__':
     
     featureList=[]
     labelList=[]
-    scaler_zscore = StandardScaler()
 
     for pdbname in complex_list:
 
         logging.info("load ligand data graph :"+pdbname)
-        x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float)
+        x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
         edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
-        edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float)
+        edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
         if os.path.exists(args.featdir+pdbname+"_energy"+'.pth') == False:
             energy=readFoldXResult(args.foldxPath,pdbname)
             energy=torch.tensor(energy,dtype=torch.float32)
             torch.save(energy.to(torch.device('cpu')),args.featdir+pdbname+"_energy"+'.pth')
-        energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float).to(args.device)
+        energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float)
         # print(x.shape)
         idx=torch.isnan(x)
         x[idx]=0.0
         idx = torch.isinf(x)
         x[idx] = float(0.0)
-        x = scaler_zscore.fit_transform(x.numpy())
-        x = torch.tensor(x).to(torch.float).to(args.device)
         energy = energy[:21]
         data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complex_dict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
         featureList.append(data)
@@ -77,7 +74,7 @@ if __name__ == '__main__':
                         ,hidden_dim=64
                         ,output_dim=32)
         net.to(args.device)
-        net.load_state_dict(torch.load(f"./models/saved/gcn/affinity_model{i}_dim{args.dim}_foldx.pt"))
+        net.load_state_dict(torch.load(args.modeldir+f"affinity_model{i}_dim{args.dim}_foldx.pt"))
         dataset=MyGCNDataset(featureList)
         dataloader=DataLoader(dataset,batch_size=args.batch_size,shuffle=True)
         criterion = torch.nn.MSELoss()
