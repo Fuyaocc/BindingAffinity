@@ -22,7 +22,7 @@ def addConnect(connect,x,y,dis):
     # connect[x].add(x+"=1")
     return connect
 
-def getinterfaceWithPymol(pdbPath,threshold=3.5):
+def getinterfaceWithPymol(pdbPath,threshold=8):
     cmd.load(pdbPath)
     cmd.select('proteins', 'polymer.protein')
  
@@ -57,7 +57,7 @@ def getinterfaceWithPymol(pdbPath,threshold=3.5):
     cmd.reinitialize()
     return interfaceRes,connect
 
-def getInterfaceRateAndSeq(pdbPath,interfaceDis=8,mutation=None):
+def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=8,mutation=None):
     #pdbName
     pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
     chainGroup=[]
@@ -146,13 +146,14 @@ def getInterfaceRateAndSeq(pdbPath,interfaceDis=8,mutation=None):
     #                     connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
 
     for i in range(resNumber):
-        for j in range(i+1,resNumber):            
-            if CAResName[i][0] == CAResName[j][0]:
-                if(abs(int(CAResName[j][3:])-int(CAResName[i][3:])) == 1 and CAResName[i] in interfaceRes[CAResName[i][0]] and CAResName[j] in interfaceRes[CAResName[j][0]]):
-                    connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
-            if(CAResName[i]!=CAResName[j] and CAResName[i][0]!=CAResName[j][0]):
-                if(CAResName[i]+"_"+CAResName[j] in pyconnect or CAResName[j]+"_"+CAResName[i] in pyconnect ):
-                    connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
+        for j in range(i+1,resNumber): 
+            if mols_dict[CAResName[i][0]] != mols_dict[CAResName[j][0]]:
+                if CAResName[i][0] == CAResName[j][0]:
+                    if(abs(int(CAResName[j][3:])-int(CAResName[i][3:])) == 1 and CAResName[i] in interfaceRes[CAResName[i][0]] and CAResName[j] in interfaceRes[CAResName[j][0]]):
+                        connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
+                if(CAResName[i]!=CAResName[j] and CAResName[i][0]!=CAResName[j][0]):
+                    if(CAResName[i]+"_"+CAResName[j] in pyconnect or CAResName[j]+"_"+CAResName[i] in pyconnect ):
+                        connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
     return complexSequence,interfaceRes,chainGroup,connect
 
 if __name__ == '__main__':

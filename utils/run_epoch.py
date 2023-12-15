@@ -12,31 +12,7 @@ def js_div(p_output, q_output, get_softmax=True):
     log_mean_output = F.log_softmax((p_output + q_output)/2, dim=-1)
     return (kl_div(log_mean_output, p_output) + kl_div(log_mean_output, q_output))/2
 
-def gcn_train(model,dataloader,optimizer,criterion,device,i,epoch,outDir,epsilon,alpha):
-    model.train()
-    model.to(device)
-    f=open(f'./tmp/train/val{i}/train_'+str(epoch)+'.txt','w')
-    prelist = []
-    truelist = []
-    epoch_loss=0.0
-    epoch_normal_mse=0.0
-    epoch_against_mse=0.0
-    epoch_against_js=0.0
-    for batch_id,data in enumerate(dataloader):
-        optimizer.zero_grad()
-        label = data.y
-        names=data.name
-        pre = model(data,False,device)
-        pre=pre.to(torch.float32)
-        label=label.unsqueeze(-1).to(torch.float32).to(device)
-        total_loss = criterion(pre,label)
-        total_loss.backward()
-        optimizer.step()
-        epoch_loss += (total_loss.detach().item())
-    epoch_loss /= (batch_id+1)
-    return model,prelist,truelist,epoch_loss
-
-def mpnn_train(model,dataloader,optimizer,criterion,args,kl_loss):
+def mpnn_train(model,dataloader,optimizer,criterion,args):
     model.train()
     prelist = []
     truelist = []

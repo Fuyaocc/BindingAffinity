@@ -2,7 +2,7 @@
 #需要pymol
 from pymol import cmd
 from Bio.PDB.PDBParser import PDBParser
-from Bio.PDB import DSSP
+from Bio.PDB import DSSP,ResidueDepth
 import os
 import sys
 import logging

@@ -25,6 +25,8 @@ def get_args():
     parser.add_argument('--featdir',type=str,default="/mnt/data/xukeyu/data/protein_protein/graph_feat/",help='complex graph node feat and edge feat dir')
     parser.add_argument('--modeldir',type=str,default="./models/saved/gcn/",help='GNN models dir')
     parser.add_argument('--preprocess',type=str,default="standard",help='standard or minmax')
+    parser.add_argument('--scalerdir',type=str,default="../models/pp/scaler/dipolymer/",help='standard or minmax store dir')
+
     args = parser.parse_args()
     return args
 

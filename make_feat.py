@@ -75,6 +75,7 @@ if __name__ == '__main__':
                 seq = pickle.load(file)
             chainlist=interfaceDict.keys()
             dssp=getDSSP(pdb_path)
+            print(dssp)
             node_feature={}
             logging.info("generate graph :"+pdbname)
             flag=False
@@ -113,7 +114,7 @@ if __name__ == '__main__':
             print(x.shape)
             edge_index=torch.tensor(edge_index,dtype=torch.long).t().contiguous()
             edge_attr=torch.tensor(edge_attr,dtype=torch.float)
-            torch.save(x.to(torch.device('cpu')),'./data/graph/'+pdbname+"_chain_sign"+'.pth')
+            torch.save(x.to(torch.device('cpu')),'./data/graph/'+pdbname+"_x"+'.pth')
             torch.save(edge_index.to(torch.device('cpu')),'./data/graphfeat/'+pdbname+"_edge_index"+'.pth')
             torch.save(edge_attr.to(torch.device('cpu')),'./data/graphfeat/'+pdbname+"_edge_attr"+'.pth')
     #         torch.save(energy.to(torch.device('cpu')),'./data/skempi/graphfeat/'+pdbname+"_energy"+'.pth')      

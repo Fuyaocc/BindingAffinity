@@ -44,7 +44,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         
         self.mpnn_0 = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=hidden_dim, drop_weight=0.1)
-        self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.2)
+        self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.1)
 
         self.bn = nn.BatchNorm1d(21)
         self.lin = torch.nn.Sequential(

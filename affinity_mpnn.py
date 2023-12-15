@@ -27,23 +27,16 @@ if __name__ == '__main__':
     print(args)
 
     complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
-
-    for line in open(args.inputdir+'pdbbind_data.txt'):
-        blocks=re.split('\t|\n',line)
+    
+    for line in open(args.inputdir+'DeepPPAPred_data.txt'):
+        blocks=re.split('\t|\n|    ',line)
         pdbname=blocks[0]
         complexdict[pdbname]=float(blocks[1])
     
-    test_set=set()
-    for line in open(args.inputdir+'test_set.txt'):
-        blocks=re.split('\t|\n',line)
-        pdbname=blocks[0]
-        test_set.add(pdbname)
-    
-    distillation_data = {}
-    with open(args.inputdir+'distillation_data.txt') as f:
-        for line in f:
-            v = re.split("\t|\n",line)
-            distillation_data[v[0]]=float(v[1])
+    # for line in open(args.inputdir+'all_set.txt'):
+    #     blocks=re.split('\t|\n|    ',line)
+    #     pdbname=blocks[0]
+    #     complexdict[pdbname]=float(blocks[1])
     
     filter_set = set()#can't cal dssp or seq too long
     with open(args.inputdir+'filter_set.txt') as f:
@@ -63,7 +56,7 @@ if __name__ == '__main__':
     test_labelList=[]
     
     for pdbname in complexdict.keys():
-        if pdbname in filter_set or pdbname in test_set:continue 
+        if pdbname in filter_set :continue 
         #local redisue
         if pdbname in graph_dict:
             logging.info("load pdbbind data graph :"+pdbname)
@@ -81,18 +74,17 @@ if __name__ == '__main__':
             x[idx] = float(0.0)
             x.to(args.device)
             energy = energy[:21]
-            data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
+            data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],name=pdbname,energy=energy)
 
             featureList.append(data)
             labelList.append(complexdict[pdbname])
 
     logging.info(len(featureList))
     #交叉验证
-    kf = KFold(n_splits=5,random_state=2023, shuffle=True)
-    best_pcc = [0.0,0.0,0.0,0.0,0.0]
-    best_mse = [0.0,0.0,0.0,0.0,0.0]
-    best_epoch = [0,0,0,0,0]
-    scaler_params = []
+    kf = KFold(n_splits=10,random_state=43, shuffle=True)
+    best_pcc = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+    best_mae = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+    best_epoch = [0,0,0,0,0,0,0,0,0,0]
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
         #preprocessing Standard 标准化
         train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
@@ -111,8 +103,8 @@ if __name__ == '__main__':
             data.x = train_x_tensor_standardized[start_idx:end_idx]
             start_idx = end_idx
         
-        with open(f'./tmp/{args.preprocess+str(i)}_scaler.pkl', 'wb') as f:
-            pickle.dump(scaler, f)
+        # with open(f'{args.scalerdir+args.preprocess+str(i)}_scaler.pkl', 'wb') as f:
+        #     pickle.dump(scaler, f)
 
         val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
         val_x_array = val_x_tensor.numpy()
@@ -135,45 +127,53 @@ if __name__ == '__main__':
         train_dataloader=DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
 
         val_dataset=MyGCNDataset(val_set)
-        val_dataloader=DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+        val_dataloader=DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=True, collate_fn=collate_fn)
 
-        criterion = torch.nn.MSELoss()
-        kl_loss = torch.nn.KLDivLoss(reduction="batchmean")
-        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-3)
+        criterion = torch.nn.L1Loss()
+        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-2)
 
         writer = SummaryWriter(args.logdir+str(i))
         
         for epoch in range(args.epoch):
             #train
-            net, train_prelist, train_truelist, train_loss= mpnn_train(net, train_dataloader, optimizer, criterion,args, kl_loss)
+            net, train_prelist, train_truelist, train_loss= mpnn_train(net, train_dataloader, optimizer, criterion,args)
 
-            logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss))
-
+            
             df = pd.DataFrame({'label':train_truelist, 'pre':train_prelist})
             train_pcc = df.pre.corr(df.label)
+            train_mae = F.l1_loss(torch.tensor(train_prelist),torch.tensor(train_truelist))
             writer.add_scalar('affinity_train/loss', train_loss, epoch)
             writer.add_scalar('affinity_train/pcc', train_pcc, epoch)
+            logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss)+ ", train mae = %.4f"%(train_mae))
             
             #val
-            _,val_prelist, val_truelist,val_loss = gcn_predict(net, val_dataloader, criterion, args, i, epoch)
+            names,val_prelist, val_truelist,val_loss = gcn_predict(net, val_dataloader, criterion, args, i, epoch)
             df = pd.DataFrame({'label':val_truelist, 'pre':val_prelist})
             val_pcc = df.pre.corr(df.label)
+            val_mae = F.l1_loss(torch.tensor(val_prelist),torch.tensor(val_truelist))
             writer.add_scalar('affinity_val/val_loss', val_loss, epoch)
             writer.add_scalar('affinity_val/val_pcc', val_pcc, epoch)
-            logging.info("Epoch "+ str(epoch)+ ": val Loss = %.4f"%(val_loss))
+            logging.info("Epoch "+ str(epoch)+ ": val Loss = %.4f"%(val_loss)+ ", val mae = %.4f"%(val_mae))
             if val_pcc > best_pcc[i]:
                 best_pcc[i]=val_pcc
                 best_epoch[i]=epoch
-                torch.save(net.state_dict(),f'./models/saved/gcn/affinity_model{i}_dim{args.dim}_foldx.pt')
+                best_mae[i] = val_mae
+                torch.save(net.state_dict(),f'{args.modeldir}affinity_model{i}_dim{args.dim}_foldx.pt')
+                with open(f'./tmp/pred/result_{i}.txt','w') as f:
+                    for j in range(0,len(val_truelist)):
+                        f.write(names[j])
+                        f.write('\t')
+                        f.write(str(val_truelist[j]))
+                        f.write('\t')
+                        f.write(str(val_prelist[j]))
+                        f.write('\n')
     
     pcc=0.
-    mse=0.
-    for i in range(5):
+    mae=0.
+    for i in range(10):
         pcc=pcc+best_pcc[i]
-        mse=mse+best_mse[i]
-        logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mse = %.4f'%(best_mse[i])+' , best_epoch : '+str(best_epoch[i]))
-
-    np.save('./tmp/standard_params.npy',np.array(scaler_params))
+        mae=mae+best_mae[i]
+        logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mae = %.4f'%(best_mae[i])+' , best_epoch : '+str(best_epoch[i]))
     print('pcc  :   '+str(pcc/5))
-    print('mse  :   '+str(mse/5))
+    print('mae  :   '+str(mae/5))
             

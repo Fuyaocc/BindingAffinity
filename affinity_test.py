@@ -33,11 +33,14 @@ if __name__ == '__main__':
         for line in f:
             v = re.split("\t|\n",line)
             distillation_data[v[0]]=float(v[1])
-    
+
+    files=os.listdir(args.featdir)
+    graph_dict=set()
+    for file in files:
+        graph_dict.add(file.split("_")[0])
+
     complex_list=set()
-
     pdbs=os.listdir(args.featdir)
-
     for pdb in pdbs:
         if pdb[:4] in complex_dict.keys():
             complex_list.add(pdb[:4])
@@ -58,9 +61,9 @@ if __name__ == '__main__':
         energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float)
         # print(x.shape)
         idx=torch.isnan(x)
-        x[idx]=0.0
+        x[idx] = 0.0
         idx = torch.isinf(x)
-        x[idx] = float(0.0)
+        x[idx] = 0.0
         energy = energy[:21]
         data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complex_dict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
         featureList.append(data)
@@ -74,7 +77,7 @@ if __name__ == '__main__':
     for i in range(5):
         with open(f'./tmp/{args.preprocess+str(i)}_scaler.pkl', 'rb') as f:
             scaler = pickle.load(f)
-        test_x_array_standardized = scaler.fit_transform(test_x_tensor.numpy())
+        test_x_array_standardized = scaler.transform(test_x_tensor.numpy())
         test__x_tensor_standardized = torch.tensor(test_x_array_standardized, dtype=torch.float32)
         start_idx = 0
         for data in featureList:
