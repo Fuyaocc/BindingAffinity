@@ -44,11 +44,16 @@ class Net(nn.Module):
         super(Net, self).__init__()
         
         self.mpnn_0 = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=hidden_dim, drop_weight=0.1)
-        self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.1)
+        self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.2)
+        
+        self.emb = torch.nn.Sequential(
+            nn.Linear(21, 8),
+            nn.BatchNorm1d(8),
+            nn.LeakyReLU()
+        )
 
-        self.bn = nn.BatchNorm1d(21)
         self.lin = torch.nn.Sequential(
-            nn.Linear(output_dim+21, output_dim),
+            nn.Linear(output_dim+8, output_dim),
             nn.BatchNorm1d(output_dim),
             nn.Dropout(0.3),
             nn.LeakyReLU(),
@@ -62,7 +67,8 @@ class Net(nn.Module):
         x = F.leaky_relu(x)
         x = global_max_pool(x, data.batch)
         e = data.energy.reshape(x.shape[0],21)
-        e = self.bn(e)
+        e = self.emb(e)
         x = torch.cat([x,e],dim=1)
         x = self.lin(x)
+        x = -F.relu(x)
         return x

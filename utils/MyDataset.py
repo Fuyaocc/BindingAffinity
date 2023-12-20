@@ -1,33 +1,34 @@
 from  torch.utils.data import Dataset
 from torch_geometric.data import Data
 
-def pickfold(featurelist,labelList,train_index, test_index):
+def pickfold(featurelist, labelList,namelist, train_index, test_index):
     x_train=[]
     y_train=[]
+    name_train=[]
     x_test=[]
     y_test=[]
+    name_test=[]
     for index in train_index:
         x_train.append(featurelist[index])
         y_train.append(labelList[index])
+        name_train.append(namelist[index])
     for index in test_index:
         x_test.append(featurelist[index])
         y_test.append(labelList[index])
-    return  x_train,y_train,x_test,y_test
+        name_test.append(namelist[index])
+    return  x_train,y_train,name_train,x_test,y_test,name_test
 
 class MyDataset(Dataset):
-    def __init__(self,featurelist,labelList):
+    def __init__(self, featurelist, labellsit, namelist):
         self.featurelist=featurelist
-        self.labelList=labelList
+        self.labellist = labellsit
+        self.namelist = namelist
     
     def __getitem__(self,index):
-        item=[]
-        item.append(self.featurelist[index][0])
-        item.append(self.featurelist[index][1])
-        item.append(self.labelList[index])
-        return  item
+        return  [self.featurelist[index], self.labellist[index],self.namelist[index]]
 
     def __len__(self): 
-        return len(self.labelList)
+        return len(self.featurelist)
     
 
 def gcn_pickfold(featurelist,train_index, test_index):

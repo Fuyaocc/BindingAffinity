@@ -49,13 +49,41 @@ def gcn_predict(model,dataloader,criterion,args,i,epoch):
     epoch_loss /= (batch_id+1)
     return names,prelist,truelist,epoch_loss
 
-def boosting_predict(model,dataloader,args):
+def cnn_train(model,dataloader,optimizer,criterion,args):
+    model.train()
+    prelist = []
+    truelist = []
+    epoch_loss = 0.0
+    for batch_id,data in enumerate(dataloader):
+        x,y = data[0],data[1]
+        x.to(args.device)
+        pre =  model(x)
+        label = y.unsqueeze(-1).to(torch.float32)
+        loss = criterion(pre,label)
+        prelist += pre.squeeze(-1).cpu().tolist()
+        truelist += label.squeeze(-1).cpu().tolist()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss += (loss.detach().item())
+    epoch_loss /= (batch_id+1)
+    return model,prelist,truelist,epoch_loss
+
+def cnn_predict(model,dataloader,criterion,args,i,epoch):
     model.eval()
-    emb = []
+    epoch_loss=0
+    prelist = []
+    truelist = []
     names = []
     for batch_id,data in enumerate(dataloader):
-        data.to(args.device)
-        pre = model(data,False)
-        emb += pre
-        names += data.name
-    return emb,names
+        x,y,name = data[0],data[1],data[2]
+        x.to(args.device)
+        label = y.unsqueeze(-1)
+        pre = model(x)
+        loss = criterion(pre,label)
+        prelist += pre.squeeze(-1).cpu().tolist()
+        truelist += label.squeeze(-1).cpu().tolist()
+        names += name
+        epoch_loss += (loss.detach().item())
+    epoch_loss /= (batch_id+1)
+    return names,prelist,truelist,epoch_loss

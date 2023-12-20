@@ -28,10 +28,10 @@ if __name__ == '__main__':
 
     complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
     
-    for line in open(args.inputdir+'DeepPPAPred_data.txt'):
-        blocks=re.split('\t|\n|    ',line)
-        pdbname=blocks[0]
-        complexdict[pdbname]=float(blocks[1])
+    for line in open(args.inputdir+'pdbbind_data.txt'):
+       blocks=re.split('\t|\n|    ',line)
+       pdbname=blocks[0]
+       complexdict[pdbname]=float(blocks[1])
     
     # for line in open(args.inputdir+'all_set.txt'):
     #     blocks=re.split('\t|\n|    ',line)
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     logging.info(len(featureList))
     #交叉验证
-    kf = KFold(n_splits=10,random_state=43, shuffle=True)
+    kf = KFold(n_splits=5,random_state=43, shuffle=True)
     best_pcc = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_mae = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_epoch = [0,0,0,0,0,0,0,0,0,0]
@@ -129,8 +129,8 @@ if __name__ == '__main__':
         val_dataset=MyGCNDataset(val_set)
         val_dataloader=DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=True, collate_fn=collate_fn)
 
-        criterion = torch.nn.L1Loss()
-        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-2)
+        criterion = torch.nn.MSELoss()
+        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-3)
 
         writer = SummaryWriter(args.logdir+str(i))
         
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     
     pcc=0.
     mae=0.
-    for i in range(10):
+    for i in range(5):
         pcc=pcc+best_pcc[i]
         mae=mae+best_mae[i]
         logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mae = %.4f'%(best_mae[i])+' , best_epoch : '+str(best_epoch[i]))
