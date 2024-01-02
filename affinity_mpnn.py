@@ -18,6 +18,7 @@ from utils.resFeature import getAAOneHotPhys
 from utils.readFoldX import readFoldXResult
 from models.affinity_net_mpnn import Net
 from sklearn.preprocessing import MinMaxScaler,StandardScaler
+from datetime import datetime
 
 def collate_fn(data_list):
     return Batch.from_data_list(data_list)
@@ -32,11 +33,6 @@ if __name__ == '__main__':
        blocks=re.split('\t|\n|    ',line)
        pdbname=blocks[0]
        complexdict[pdbname]=float(blocks[1])
-    
-    # for line in open(args.inputdir+'all_set.txt'):
-    #     blocks=re.split('\t|\n|    ',line)
-    #     pdbname=blocks[0]
-    #     complexdict[pdbname]=float(blocks[1])
     
     filter_set = set()#can't cal dssp or seq too long
     with open(args.inputdir+'filter_set.txt') as f:
@@ -63,23 +59,26 @@ if __name__ == '__main__':
             x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
             edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int32).to(args.device)
             edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32).to(args.device)
-            if os.path.exists(args.featdir+pdbname+"_energy"+'.pth') == False:
-                energy=readFoldXResult(args.foldxPath,pdbname)
+            if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
+                energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname)
                 energy=torch.tensor(energy,dtype=torch.float32)
-                torch.save(energy.to(torch.device('cpu')),args.featdir+pdbname+"_energy"+'.pth')
-            energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float32).to(args.device)
+                torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
+            energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32).to(args.device)
             idx=torch.isnan(x)
             x[idx]=0.0
             idx = torch.isinf(x)
             x[idx] = float(0.0)
             x.to(args.device)
             energy = energy[:21]
-            data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],name=pdbname,energy=energy)
-
+            idx = torch.isnan(energy)
+            energy[idx] = 0.0
+            data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complexdict[pdbname],y_soft=complexdict[pdbname],name=pdbname,energy=energy)
             featureList.append(data)
             labelList.append(complexdict[pdbname])
 
     logging.info(len(featureList))
+
+    TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
     #交叉验证
     kf = KFold(n_splits=5,random_state=43, shuffle=True)
     best_pcc = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
@@ -102,9 +101,9 @@ if __name__ == '__main__':
             end_idx = start_idx + num_samples
             data.x = train_x_tensor_standardized[start_idx:end_idx]
             start_idx = end_idx
-        
-        # with open(f'{args.scalerdir+args.preprocess+str(i)}_scaler.pkl', 'wb') as f:
-        #     pickle.dump(scaler, f)
+
+        with open(f'./tmp/standard_scaler{i}.picke','wb') as sc:
+            pickle.dump(scaler, sc)
 
         val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
         val_x_array = val_x_tensor.numpy()
@@ -130,20 +129,21 @@ if __name__ == '__main__':
         val_dataloader=DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=True, collate_fn=collate_fn)
 
         criterion = torch.nn.MSELoss()
+        
         optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-3)
 
-        writer = SummaryWriter(args.logdir+str(i))
+        writer = SummaryWriter(args.logdir+TIMESTAMP+'val'+str(i))
         
         for epoch in range(args.epoch):
             #train
-            net, train_prelist, train_truelist, train_loss= mpnn_train(net, train_dataloader, optimizer, criterion,args)
+            net, train_prelist, train_truelist, train_loss = mpnn_train(net, train_dataloader, optimizer, criterion, args, epoch)
 
             
             df = pd.DataFrame({'label':train_truelist, 'pre':train_prelist})
             train_pcc = df.pre.corr(df.label)
             train_mae = F.l1_loss(torch.tensor(train_prelist),torch.tensor(train_truelist))
-            writer.add_scalar('affinity_train/loss', train_loss, epoch)
-            writer.add_scalar('affinity_train/pcc', train_pcc, epoch)
+            writer.add_scalar('train/loss', train_loss, epoch)
+            writer.add_scalar('train/pcc', train_pcc, epoch)
             logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss)+ ", train mae = %.4f"%(train_mae))
             
             #val
@@ -151,15 +151,15 @@ if __name__ == '__main__':
             df = pd.DataFrame({'label':val_truelist, 'pre':val_prelist})
             val_pcc = df.pre.corr(df.label)
             val_mae = F.l1_loss(torch.tensor(val_prelist),torch.tensor(val_truelist))
-            writer.add_scalar('affinity_val/val_loss', val_loss, epoch)
-            writer.add_scalar('affinity_val/val_pcc', val_pcc, epoch)
+            writer.add_scalar('val/loss', val_loss, epoch)
+            writer.add_scalar('val/pcc', val_pcc, epoch)
             logging.info("Epoch "+ str(epoch)+ ": val Loss = %.4f"%(val_loss)+ ", val mae = %.4f"%(val_mae))
             if val_pcc > best_pcc[i]:
                 best_pcc[i]=val_pcc
                 best_epoch[i]=epoch
                 best_mae[i] = val_mae
-                torch.save(net.state_dict(),f'{args.modeldir}affinity_model{i}_dim{args.dim}_foldx.pt')
-                with open(f'./tmp/pred/result_{i}.txt','w') as f:
+                torch.save(net.state_dict(),f'{args.modeldir}PPA_Pred_gnn{i}_dim{args.dim}_foldx.pt')
+                with open(f'./tmp/result_{i}.txt','w') as f:
                     for j in range(0,len(val_truelist)):
                         f.write(names[j])
                         f.write('\t')

@@ -6,6 +6,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 import pandas as pd
 import pickle
+import math
 import torch.nn.functional as F
 from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
@@ -17,6 +18,7 @@ from utils.resFeature import getAAOneHotPhys
 from utils.readFoldX import readFoldXResult
 from models.affinity_net_cnn import Net
 from sklearn.preprocessing import MinMaxScaler,StandardScaler
+from datetime import datetime
 
 if __name__ == '__main__':
     args=get_args()
@@ -24,15 +26,10 @@ if __name__ == '__main__':
 
     complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
     
-    for line in open(args.inputdir+'DeepPPAPred_data.txt'):
+    for line in open(args.inputdir+'pdbbind_data.txt'):
         blocks=re.split('\t|\n|    ',line)
         pdbname=blocks[0]
         complexdict[pdbname]=float(blocks[1])
-    
-    # for line in open(args.inputdir+'all_set.txt'):
-    #     blocks=re.split('\t|\n|    ',line)
-    #     pdbname=blocks[0]
-    #     complexdict[pdbname]=float(blocks[1])
     
     filter_set = set()#can't cal dssp or seq too long
     with open(args.inputdir+'filter_set.txt') as f:
@@ -55,11 +52,11 @@ if __name__ == '__main__':
         #local redisue
         if pdbname in graph_dict:
             logging.info("load pdbbind data graph :"+pdbname)
-            # if os.path.exists(args.featdir+pdbname+"_energy"+'.pth') == False:
+            # if os.path.exists(args.energydir+pdbname+"_energy"+'.pth') == False:
             #     energy=readFoldXResult(args.foldxPath,pdbname)
             #     energy=torch.tensor(energy,dtype=torch.float32)
             #     torch.save(energy.to(torch.device('cpu')),args.featdir+pdbname+"_energy"+'.pth')
-            # energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float32).to(args.device)
+            # energy=torch.load(args.energydir+pdbname+"_energy"+'.pth').to(torch.float32).to(args.device)
             # energy = energy[:21]
             x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
             idx=torch.isnan(x)
@@ -71,15 +68,18 @@ if __name__ == '__main__':
             edge_dict = {}
             
             for k in range(0,len(edge_index[0])):
-                if k%2 == 1 or edge_attr[k] < 0:
+                if k%2 == 1:
                     continue
                 i = edge_index[0][k]
                 j = edge_index[1][k]
-                t = x[i][:-1].tolist()+[edge_attr[k]]+x[j][:-1].tolist()
-                edge_dict[float(edge_attr[k])] = t
+                if edge_attr[k] > 0:
+                    t = [1,0]+[math.fabs(edge_attr[k])]+x[i][:-1].tolist()+x[j][:-1].tolist()
+                else:
+                    t = [0,1]+[math.fabs(edge_attr[k])]+x[i][:-1].tolist()+x[j][:-1].tolist()
+                edge_dict[math.fabs(float(edge_attr[k]))] = t
             
             sorted_keys = sorted(edge_dict.keys())
-            x_len = 2*x.shape[1]-1
+            x_len = 2*(x.shape[1]-1)+3
             xx = []
             if len(sorted_keys) < 200:
                 padding_len = 200-len(sorted_keys)
@@ -96,14 +96,16 @@ if __name__ == '__main__':
             namelist.append(pdbname)
     logging.info(len(featureList))
     # #交叉验证
-    kf = KFold(n_splits=10,random_state=43, shuffle=True)
+    TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
+    kf = KFold(n_splits=5,random_state=43, shuffle=True)
     best_pcc = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_mae = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_epoch = [0,0,0,0,0,0,0,0,0,0]
     for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
         x_train,y_train,name_train,x_test,y_test,name_test = pickfold(featureList,labelList,namelist, train_index, test_index)
 
-        dims = [257,257,30,257,128,64]
+        dims = [263,131,64,200,128,64]
+        # dims = [131,131,131,50,128,64]
         net=Net(dims)
         
         net.to(args.device)
@@ -115,15 +117,14 @@ if __name__ == '__main__':
         val_dataloader=DataLoader(val_dataset, batch_size=args.batch_size//4, shuffle=True)
 
         criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-2)
+        optimizer = torch.optim.Adam(net.parameters(), lr = 1e-4, weight_decay = 1e-1)
 
-        writer = SummaryWriter(args.logdir+str(i))
+        writer = SummaryWriter(args.logdir+TIMESTAMP+'val'+str(i))
         
         for epoch in range(args.epoch):
             #train
             net, train_prelist, train_truelist, train_loss= cnn_train(net, train_dataloader, optimizer, criterion,args)
 
-            
             df = pd.DataFrame({'label':train_truelist, 'pre':train_prelist})
             train_pcc = df.pre.corr(df.label)
             train_mae = F.l1_loss(torch.tensor(train_prelist),torch.tensor(train_truelist))
@@ -132,7 +133,7 @@ if __name__ == '__main__':
             logging.info("Epoch "+ str(epoch)+ ": train Loss = %.4f"%(train_loss)+ ", train mae = %.4f"%(train_mae))
             
             #val
-            val_name,val_prelist, val_truelist,val_loss = cnn_predict(net, val_dataloader, criterion, args, i, epoch)
+            val_name, val_prelist, val_truelist, val_loss = cnn_predict(net, val_dataloader, criterion, args, i, epoch)
             df = pd.DataFrame({'label':val_truelist, 'pre':val_prelist})
             val_pcc = df.pre.corr(df.label)
             val_mae = F.l1_loss(torch.tensor(val_prelist),torch.tensor(val_truelist))
@@ -143,7 +144,7 @@ if __name__ == '__main__':
                 best_pcc[i]=val_pcc
                 best_epoch[i]=epoch
                 best_mae[i] = val_mae
-                torch.save(net.state_dict(),f'{args.modeldir}affinity_model{i}_dim{args.dim}_foldx.pt')
+                torch.save(net.state_dict(),f'{args.modeldir}PPA_Pred_cnn{i}_dim{args.dim}_foldx.pt')
                 with open(f'./tmp/pred/result_{i}.txt','w') as f:
                     for j in range(0,len(val_truelist)):
                         f.write(val_name[j])

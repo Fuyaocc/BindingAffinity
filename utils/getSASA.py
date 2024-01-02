@@ -43,7 +43,11 @@ def getDSSP(pdbFile):
         p=PDBParser(QUIET=True)
         structure=p.get_structure("tmp",pdbFile)
         model=structure[0]
-        dssp=DSSP(model,pdbFile,dssp='mkdssp')
+        try:
+            dssp=DSSP(model,pdbFile,dssp='mkdssp')
+        except RuntimeError:
+            logging.error("can't cal dssp :{}".format(pdbFile))
+            return None
         return dssp
     else:
         logging.error("no such pdb:{}".format(pdbFile))
@@ -88,3 +92,27 @@ def getACCDict(pdbFile,interactionInfo,outDir,allMutation):
         chainACC=getAccFromDSSP(subUnit2DSSP[chain],mutation)
         mutation2ACC[mutation]=[complexACC,chainACC]  #float类型
     return mutation2ACC
+
+def getRD(pdb_path):
+    if os.path.exists(pdb_path):
+        p=PDBParser(QUIET=True)
+        try:
+            structure=p.get_structure("tmp",pdb_path)
+            model=structure[0]
+            rd = ResidueDepth(model)
+        except RuntimeError:
+            print('can not cal'+pdb_path)
+            return None
+    else:
+        logging.error("no such pdb:{}".format(pdb_path))
+        sys.exit()
+    start = 1
+    chain_k = '*'
+    rerd={}
+    for k in rd.keys():
+        if k[0]!=chain_k:
+            chain_k=k[0]
+            start=1
+        rerd[k[0]+'_'+str(start)] = rd[k]
+        start+=1
+    return rerd

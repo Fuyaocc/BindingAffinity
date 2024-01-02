@@ -1,5 +1,4 @@
 from  torch.utils.data import Dataset
-from torch_geometric.data import Data
 
 def pickfold(featurelist, labelList,namelist, train_index, test_index):
     x_train=[]
@@ -20,7 +19,7 @@ def pickfold(featurelist, labelList,namelist, train_index, test_index):
 
 class MyDataset(Dataset):
     def __init__(self, featurelist, labellsit, namelist):
-        self.featurelist=featurelist
+        self.featurelist = featurelist
         self.labellist = labellsit
         self.namelist = namelist
     

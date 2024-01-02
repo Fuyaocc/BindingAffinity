@@ -7,8 +7,8 @@ import numpy as np
 import logging
 import sys
 import os
-import pymol
-from pymol import cmd
+# import pymol
+# from pymol import cmd
 import math
 
 def addConnect(connect,x,y,dis):
@@ -22,42 +22,42 @@ def addConnect(connect,x,y,dis):
     # connect[x].add(x+"=1")
     return connect
 
-def getinterfaceWithPymol(pdbPath,threshold=8):
-    cmd.load(pdbPath)
-    cmd.select('proteins', 'polymer.protein')
+# def getinterfaceWithPymol(pdbPath,threshold=4):
+#     cmd.load(pdbPath)
+#     cmd.select('proteins', 'polymer.protein')
  
-    # 查找相互作用原子对
-    pairs = cmd.find_pairs("proteins","proteins",cutoff=threshold)
+#     # 查找相互作用原子对
+#     pairs = cmd.find_pairs("proteins","proteins",cutoff=threshold)
 
-    # 将原子对转换为蛋白质残基对
-    interfaceRes={}
-    connect=set()
-    for a1, a2 in pairs:
-        at1 = cmd.get_model('%s`%d' % (a1[0], a1[1])).atom[0]
-        at2 = cmd.get_model('%s`%d' % (a2[0], a2[1])).atom[0]
+#     # 将原子对转换为蛋白质残基对
+#     interfaceRes={}
+#     connect=set()
+#     for a1, a2 in pairs:
+#         at1 = cmd.get_model('%s`%d' % (a1[0], a1[1])).atom[0]
+#         at2 = cmd.get_model('%s`%d' % (a2[0], a2[1])).atom[0]
 
-        if(at1.resn=='UNK'):
-            res1=at1.chain+"_X"+str(at1.resi)
-        else:
-            res1=at1.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at1.resn)+str(at1.resi)
-        if(at2.resn=="UNK"):
-            res2=at2.chain+"_X"+str(at2.resi)
-        else:
-            res2=at2.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at2.resn)+str(at2.resi)
+#         if(at1.resn=='UNK'):
+#             res1=at1.chain+"_X"+str(at1.resi)
+#         else:
+#             res1=at1.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at1.resn)+str(at1.resi)
+#         if(at2.resn=="UNK"):
+#             res2=at2.chain+"_X"+str(at2.resi)
+#         else:
+#             res2=at2.chain+"_"+Bio.PDB.Polypeptide.three_to_one(at2.resn)+str(at2.resi)
 
-        if res1 != res2  and res1[0]!=res2[0]:
-            if(res1[0] not in interfaceRes.keys()):
-                interfaceRes[res1[0]]=set()
-            if(res2[0] not in interfaceRes.keys()):
-                interfaceRes[res2[0]]=set()
-            interfaceRes[res1[0]].add(res1)
-            interfaceRes[res2[0]].add(res2)
-            connect.add(res1+"_"+res2)
-            connect.add(res2+"_"+res1)
-    cmd.reinitialize()
-    return interfaceRes,connect
+#         if res1 != res2  and res1[0]!=res2[0]:
+#             if(res1[0] not in interfaceRes.keys()):
+#                 interfaceRes[res1[0]]=set()
+#             if(res2[0] not in interfaceRes.keys()):
+#                 interfaceRes[res2[0]]=set()
+#             interfaceRes[res1[0]].add(res1)
+#             interfaceRes[res2[0]].add(res2)
+#             connect.add(res1+"_"+res2)
+#             connect.add(res2+"_"+res1)
+#     cmd.reinitialize()
+#     return interfaceRes,connect
 
-def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=8,mutation=None):
+def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #pdbName
     pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
     chainGroup=[]
@@ -124,15 +124,16 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=8,mutation=None):
     #计算distance map
     CACoor=np.array(CACoor)
     dis =  np.linalg.norm(CACoor[:, None, :] - CACoor[None, :, :], axis=-1)
-    # mask = dis<=interfaceDis
+    mask = dis<=interfaceDis
+    inside = dis<=4
     resNumber=len(CAResName)
     #统计interface residue数量
-    interfaceRes,pyconnect=getinterfaceWithPymol(pdbPath)
-    for chain in chainGroup:
-        if chain not in interfaceRes.keys():
-            interfaceRes[chain]=set()
+    # interfaceRes,pyconnect=getinterfaceWithPymol(pdbPath)
+    # for chain in chainGroup:
+    #     if chain not in interfaceRes.keys():
+    #         interfaceRes[chain]=set()
     connect={}
-
+    interfaceRes={}
     # if mutation != None: #YI36A
     #     for mut in mutation:
     #         res=mut[1]+'_'+mut[-1]+mut[2:-1]
@@ -146,14 +147,31 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=8,mutation=None):
     #                     connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
 
     for i in range(resNumber):
-        for j in range(i+1,resNumber): 
+        for j in range(i+1,resNumber):
+            if mask[i][j] == False:
+                continue
             if mols_dict[CAResName[i][0]] != mols_dict[CAResName[j][0]]:
-                if CAResName[i][0] == CAResName[j][0]:
-                    if(abs(int(CAResName[j][3:])-int(CAResName[i][3:])) == 1 and CAResName[i] in interfaceRes[CAResName[i][0]] and CAResName[j] in interfaceRes[CAResName[j][0]]):
-                        connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
-                if(CAResName[i]!=CAResName[j] and CAResName[i][0]!=CAResName[j][0]):
-                    if(CAResName[i]+"_"+CAResName[j] in pyconnect or CAResName[j]+"_"+CAResName[i] in pyconnect ):
-                        connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
+                if CAResName[i] not in interfaceRes.keys():
+                    interfaceRes[CAResName[i]] = []
+                interfaceRes[CAResName[i]].append(CAResName[j])
+                if CAResName[j] not in interfaceRes.keys():
+                    interfaceRes[CAResName[j]] = []
+                interfaceRes[CAResName[j]].append(CAResName[i])
+                interfaceRes[CAResName[i]].append(CAResName[j])
+                connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
+    
+    for i in range(resNumber):
+        for j in range(i+1,resNumber):
+            if CAResName[i][0] == CAResName[j][0]:
+                if (math.fabs(int(CAResName[j].split('_')[1][1:])-int(CAResName[j].split('_')[1][1:])) == 1 ) or (inside[i][j]== True and CAResName[i] in interfaceRes.keys() and CAResName[j] in interfaceRes.keys()):
+                    if CAResName[i] not in interfaceRes.keys():
+                        interfaceRes[CAResName[i]] = []
+                    interfaceRes[CAResName[i]].append(CAResName[j])
+                    if CAResName[j] not in interfaceRes.keys():
+                        interfaceRes[CAResName[j]] = []
+                    interfaceRes[CAResName[j]].append(CAResName[i])
+                    interfaceRes[CAResName[i]].append(CAResName[j])
+                    connect=addConnect(connect,CAResName[i],CAResName[j],-dis[i][j])
     return complexSequence,interfaceRes,chainGroup,connect
 
 if __name__ == '__main__':

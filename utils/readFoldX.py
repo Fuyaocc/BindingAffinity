@@ -3,10 +3,10 @@ import os
 
 def readFoldXResult(path,pdbname):
     foldxres=[0.]*25
-    pdb_path=path+"Interaction_"+pdbname+"_AC.fxout"
-    if os.path.exists(pdb_path)==False:
-        os.system("cd /mnt/data/xukeyu/data/pdbs/"+"&&"+f'/home/xukeyu/xky/foldx_20231231 --command=AnalyseComplex --pdb="{pdbname}.pdb" --complexWithDNA=false  --output-dir="/mnt/data/xukeyu/data/foldx_result/"')
-    with open(pdb_path,"r") as f:
+    result_path=path+"Interaction_"+pdbname+".ent_AC.fxout"
+    if os.path.exists(result_path)==False:
+        os.system("cd /mnt/data/xukeyu/PPA_Pred/PP/"+"&&"+f'/mnt/data/xukeyu/PPA_Pred/foldx/foldx_20231231 --command=AnalyseComplex --pdb="{pdbname}.ent.pdb" --complexWithDNA=false  --output-dir="/mnt/data/xukeyu/PPA_Pred/foldx/foldx_result/"')
+    with open(result_path,"r") as f:
         for line in f:
             index=0
             if line.startswith("./"):
