@@ -42,75 +42,31 @@ def mycopyfile(srcfile,dstfile):
 
 if __name__ == '__main__':
     args=get_args()
-
-
-    # logging.info("esm1v model loading")
-    # esm1v_model_location="/home/ysbgs/xky/esm1v_t33_650M_UR90S_1"
-    # esm1v_model, alphabet = esm.pretrained.load_model_and_alphabet(esm1v_model_location)
-    # batch_converter = alphabet.get_batch_converter()
-    # esm1v_model.to(args.device)
-    # logging.info("esm1v model load finish")
-    
-    # print(args)
-
-    # complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
-    # seqdict={}
-    # ml=0
-    # for line in open(args.inputDir+'benchmark_seq.txt'):
-    #     blocks=re.split('\t|\n',line)
-    #     seqdict[blocks[0]]=blocks[1]
-    #     if len(blocks[1])>ml:
-    #         ml=len(blocks[1])
-    # print(ml)
-# structure
-    # for line in open(args.inputDir+'SKEMPI_all_dg_avg.txt'):
-    #     blocks=re.split('\t|\n',line)
-    #     pdbname=blocks[0]+'+'+blocks[1]
-    #     data=[]
-    #     data.append(seqdict[blocks[0]])
-    #     data.append(seqdict[blocks[1]])
-    #     data.append(float(blocks[2]))
-    #     complexdict[pdbname]=data
-
-    # for chain_name in seqdict.keys():
-    #     logging.info("generate sequcence esm1v : "+chain_name)
-        
-    #     chain_esm = runesm1v(seqdict[chain_name], esm1v_model, alphabet, batch_converter, args.device)
-    #     torch.save(chain_esm.to(torch.device('cpu')),'../data/esmfeature/skempi/'+chain_name+'.pth')
-        
-    # exist_files=os.listdir("/home/ysbgs/xky/bindingaffinity/data/esmfeature/strute_emb/")
     exist_files=[]
     esm_dict=set()
     for line in exist_files:
         esm_dict.add(line.split(".")[0][:-2])
-    model, alphabet = esm.pretrained.esm_if1_gvp4_t16_142M_UR50()
+    esmif1_model_location='/mnt/data/xukeyu/PPA_Pred/feats/esmfeature/esm_if1_gvp4_t16_142M_UR50.pt'
+    model, alphabet = esm.pretrained.load_model_and_alphabet(esmif1_model_location)
     for param in model.parameters():
         param.requires_grad = False
     model = model.eval()
-    # pdbs=[]
-    # # pdb_dict={}
-    # with open('../data/pdbbind_data.txt','r') as f1:
-    #     for line in f1:
-    #         pdbs.append(line.split('\t')[0])
-    #         # pdb_dict[line.split('\t')[0]]=line.split('\t')[2]
-            
-    # # f=open('../data/pdbbind_affinity_all2_v2.txt','w')
     
     files=[]
-    # with open('/home/ysbgs/xky/bindingaffinity/data/pdbbind_data.txt','r') as f:
-    with open('/home/ysbgs/xky/pdb7.txt','r') as f:
+    with open('/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/skempi_data.txt','r') as f:
         for line in f:
             pdb=re.split('\t|\n',line)
             files.append(pdb[0])
     
-    path='/home/ysbgs/xky/cleanpdb/'
-    # for name in pdbs:
-    #     mycopyfile(sourcepath+name,path+name)
+    path='/mnt/data/xukeyu/PPA_Pred/data/skempi/'
     too_long=["1ogy","1tzn","2wss","3lk4","3sua","3swp"]
-    f=open("/home/ysbgs/xky/pdb_chain.txt",'w')
+    # f = open('/mnt/data/xukeyu/PPA_Pred/skempi_seq.txt','w')
+    
+    files=os.listdir('/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1v/')
+    for file in files:
+        exist_pdb.add(file.split('.')[0])
+    
     for file in files: #遍历文件夹
-        # if file in esm_dict: continue
-        # if file in too_long: continue
         fp=path+file+'.pdb'
         parser = PDBParser()
         structure = parser.get_structure("temp", fp)
@@ -121,9 +77,16 @@ if __name__ == '__main__':
         print(chainGroup)
         structure = esm.inverse_folding.util.load_structure(fp, list(chainGroup))
         coords, seqs = esm.inverse_folding.multichain_util.extract_coords_from_complex(structure)
+        print(seqs)
+        # for k,v in seqs.items():
+        #     f.write(file.split('.')[0]+'_'+k)
+        #     f.write('\t')
+        #     f.write(v)
+        #     f.write('\n')
         for chain_id in chainGroup:
+            if file.split('.')[0]+'_'+chain_id in exist_pdb: continue
             rep = esm.inverse_folding.multichain_util.get_encoder_output_for_complex(model, alphabet, coords, chain_id)
             print(rep.shape)
-            torch.save(rep.to(torch.device('cpu')),'../data/esmfeature/struct_emb/'+file.split('.')[0]+'_'+chain_id+'.pth')
+            torch.save(rep.to(torch.device('cpu')),'/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1f1/'+file.split('.')[0]+'_'+chain_id+'.pth')
             del rep 
             gc.collect()        

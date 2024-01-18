@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing,global_mean_pool,global_max_pool
+from torch_geometric.nn import MessagePassing,global_max_pool
+from torch_geometric.nn.pool import global_max_pool,max_pool,graclus
 from torch_geometric.utils import add_self_loops, degree
+import torch.nn.init as init
+
 
 class MPNN(MessagePassing):
     def __init__(self, input_dim, hidden_dim, output_dim,drop_weight):
@@ -14,6 +17,13 @@ class MPNN(MessagePassing):
             nn.LeakyReLU(),
             nn.Linear(hidden_dim, output_dim)
         )
+        #self.edge_emb = nn.Linear(3,1)
+
+        # initialize
+        for layer in self.lin:
+            if isinstance(layer, nn.Linear):
+                init.kaiming_normal_(layer.weight, mode='fan_in', nonlinearity='leaky_relu')
+                init.constant_(layer.bias, 0.01)
 
     def forward(self, x, edge_index, edge_attr):
         # 添加自环边
@@ -21,12 +31,13 @@ class MPNN(MessagePassing):
 
         x = self.lin(x)
 
-        # 计算归一化系数
+        # 归一化系数
         row, col = edge_index
         deg = degree(row, x.size(0), dtype=x.dtype)
         deg_inv_sqrt = deg.pow(-0.5)
         norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
-
+        
+        #edge_attr = self.edge_emb(edge_attr)
         # 节点特征传递
         return self.propagate(edge_index, x=x, edge_attr=edge_attr, norm=norm)
 
@@ -60,13 +71,23 @@ class Net(nn.Module):
             nn.Linear(output_dim, 1)
         )
 
+        # initialize
+        for layer in [self.emb, self.lin]:
+            for sub_layer in layer:
+                if isinstance(sub_layer, nn.Linear):
+                    init.kaiming_normal_(sub_layer.weight, mode='fan_in', nonlinearity='leaky_relu')
+                    init.constant_(sub_layer.bias, 0.01)
+
     def forward(self, data):
-        x = self.mpnn_0(data.x, data.edge_index, data.edge_attr)
-        x = F.leaky_relu(x)
-        x = self.mpnn_1(x, data.edge_index, data.edge_attr)
+        e = data.energy
+        data.x = self.mpnn_0(data.x, data.edge_index, data.edge_attr)
+        cluster = graclus(data.edge_index, num_nodes=data.x.shape[0])
+        data.x = F.leaky_relu(data.x)
+        data = max_pool(cluster,data)
+        x = self.mpnn_1(data.x, data.edge_index, data.edge_attr)
         x = F.leaky_relu(x)
         x = global_max_pool(x, data.batch)
-        e = data.energy.reshape(x.shape[0],21)
+        e = e.reshape(x.shape[0],21)
         e = self.emb(e)
         x = torch.cat([x,e],dim=1)
         x = self.lin(x)

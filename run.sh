@@ -1,1 +1,6 @@
-python affinity_mpnn.py --device cuda:1 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=./log/ --batch_size 256
+nohup python affinity_mpnn.py --device cuda:0 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha2/log/ --batch_size 256 --alpha 2.0 --outdir ../tmp/alpha2/ > ../tmp/alpha2/gnn.log 2>&1 &
+nohup python affinity_mpnn.py --device cuda:1 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha3/log/ --batch_size 256 --alpha 2.5 --outdir ../tmp/alpha3/ > ../tmp/alpha3/gnn.log 2>&1 &
+nohup python affinity_mpnn.py --device cuda:2 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha4/log/ --batch_size 256 --alpha 3.0 --outdir ../tmp/alpha4/ > ../tmp/alpha4/gnn.log 2>&1 &
+nohup python affinity_mpnn.py --device cuda:0 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha5/log/ --batch_size 256 --alpha 3.5 --outdir ../tmp/alpha5/ > ../tmp/alpha5/gnn.log 2>&1 &
+nohup python affinity_mpnn.py --device cuda:1 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha6/log/ --batch_size 256 --alpha 4.0 --outdir ../tmp/alpha6/ > ../tmp/alpha6/gnn.log 2>&1 &
+nohup python affinity_mpnn.py --device cuda:2 --epoch 6000 --featdir ../graphfeat_8A/ --dim 140 --logdir=../tmp/alpha7/log/ --batch_size 256 --alpha 4.5 --outdir ../tmp/alpha7/ > ../tmp/alpha7/gnn.log 2>&1 &

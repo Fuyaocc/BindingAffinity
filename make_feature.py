@@ -18,15 +18,17 @@ if __name__ == '__main__':
     args=get_args()
     print(args)
 
-    complexdict={} # pdbname : [seq1, seq2, bingding_affinity]
+    complexdict={}
 
-    for line in open(args.inputdir+'pdbbind_data.txt'):
+    for line in open(args.inputdir+'prodigy_dataset.txt'):
         blocks=re.split('\t|\n',line)
         pdbname=blocks[0]
         complexdict[pdbname]=blocks[1]
             
     exist_files = os.listdir('../graph_res12A/')
     graph_dict=set()
+    for file in exist_files:
+        graph_dict.add(file.split('_')[0])
     
     complex_mols = {}
     with open('./data/pdb_mols.txt','r') as f:
@@ -38,49 +40,87 @@ if __name__ == '__main__':
                     mols_dict[x] = i-1
             complex_mols[blocks[0]] = mols_dict
 
+    complex_mols['3cph']={'A':0,'B':1}
+    complex_mols['4cpa']={'A':0,'B':1}
+    
     resfeat=getAAOneHotPhys()
 
+    graph_path = '../graph_res12A/'
+    feat_path = '../graphfeat_res12A/'
+
     for pdbname in complexdict.keys():
-        if pdbname in graph_dict:continue
-        pdb_path='/mnt/data/xukeyu/PPA_Pred/PP/'+pdbname+'.ent.pdb'
-        logging.info("generate graph:"+pdbname)
-        seq,interfaceDict,chainlist,connect=getInterfaceRateAndSeq(pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis)
-        with open('../graph_res12A/'+pdbname+'_seq.picke','wb') as f:
-            pickle.dump(seq, f)
-        with open('../graph_res12A/'+pdbname+'_interfaceDict.picke','wb') as f:
-            pickle.dump(interfaceDict, f)
-        with open('../graph_res12A/'+pdbname+'_connect.picke','wb') as f:
-            pickle.dump(connect, f)
-        energy=readFoldXResult(args.foldxPath,pdbname)
-        energy=torch.tensor(energy,dtype=torch.float)
+        #if pdbname in graph_dict:continue
+        # pdb_path = '/mnt/data/xukeyu/PPA_Pred/PP/'+pdbname+'.ent.pdb'
+        if pdbname != '3cph':continue
+        pdb_path = '/mnt/data/xukeyu/PPA_Pred/PRODIGYdataset/'+pdbname.upper()+'.pdb'
+        print(pdb_path)
+        seq_path = graph_path+pdbname+'_seq.picke'
+        interfaceDict_path = graph_path+pdbname+'_interfaceDict.picke'
+        connet_path = graph_path+pdbname+'_connect.picke'
+        if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
+            logging.info("generate graph:"+pdbname)
+            seq,interfaceDict,chainlist,connect=getInterfaceRateAndSeq(pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis)
+            with open(seq_path,'wb') as f:
+                pickle.dump(seq, f)
+            with open(interfaceDict_path,'wb') as f:
+                pickle.dump(interfaceDict, f)
+            with open(connet_path,'wb') as f:
+                pickle.dump(connect, f)
+        else:
+            logging.info("load graph:"+pdbname)
+            with open(seq_path, 'rb') as file:
+                seq = pickle.load(file)
+            with open(interfaceDict_path, 'rb') as file:
+                interfaceDict = pickle.load(file)
+            with open(connet_path, 'rb') as file:
+                connect = pickle.load(file)
         chainlist=interfaceDict.keys()
-        dssp = getDSSP(pdb_path)
-        rd = getRD(pdb_path)
-        if rd == None or dssp == None:
-            continue
+        print(seq)
+        if len(chainlist) > 10:continue
+        dssp_path = '../feats/dssp/'+pdbname+'.npy'
+        rd_path = '../feats/rd/'+pdbname+'_rd.npy'
+        if os.path.exists(dssp_path):
+            dssp = np.load(dssp_path,allow_pickle=True)
+        else:
+            dssp = getDSSP(pdb_path)
+            if dssp!= None:
+                np.save(dssp_path,dssp,allow_pickle=True)
+
+        if os.path.exists(rd_path):
+            rd = np.load(rd_path,allow_pickle=True).item()
+        else:
+            rd = getRD(pdb_path)
+            if rd!= None:
+                np.save(rd_path,rd,allow_pickle=True)
+        
+        # if rd == None or dssp == None:
+        #     continue
         node_feature={}
         logging.info("generate graph feat:"+pdbname)
-        flag=False
-        chain_sign=0
         print(chainlist)
         for chain in chainlist:
-            if flag==True:break
-            with open('../sidechain/'+pdbname+'_'+chain+'_sidechain.picke', 'rb') as file:
+            seq_chain = seq[pdbname+'_'+chain][0]
+            idx_map = {}
+            ss = 0
+            for o in range(len(seq_chain)):
+                if seq_chain[o] != 'X':
+                    idx_map[o] = ss
+                    ss += 1
+            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain.picke', 'rb') as file:
                 sidechain = pickle.load(file)
-            with open('../sidechain/'+pdbname+'_'+chain+'_sidechain_center.picke', 'rb') as file:
+            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain_center.picke', 'rb') as file:
                 sidechain_center = pickle.load(file)
             reslist=interfaceDict[chain]
-            esm1f_feat=torch.load('./data/esmfeature/struct_emb/'+pdbname+'_'+chain+'.pth')
+            esm1f_feat=torch.load('../feats/esmfeature/esmif1/'+pdbname+'_'+chain+'.pth')
             esm1f_feat=F.avg_pool1d(esm1f_feat,16,16)
-            esm1v_feat=torch.load('./data/esmfeature/seq_emb/'+pdbname+'_'+chain+'.pth')
+            esm1v_feat=torch.load('../feats/esmfeature/esm1v/'+pdbname+'_'+chain+'.pth')
             esm1v_feat=F.avg_pool1d(esm1v_feat,40,40)
+            s = seq[pdbname+'_'+chain][1]
             for v in reslist:
                 chain_sign = [0.0]*10
                 chain_sign[complex_mols[pdbname][chain]] = 1
                 reduise=v.split('_')[1]
-                s = seq[pdbname+'_'+chain][1]
                 index=int(reduise[1:])-int(s)
-                print(index)
                 res_key = chain+'_'+str(index+1)
                 if res_key not in dssp.keys(): 
                     dssp_feat=[0.0,0.0,0.0,0.0,0.0]
@@ -102,17 +142,15 @@ if __name__ == '__main__':
                 node_feature[v].append(resfeat[reduise[0]])#res feat 
                 node_feature[v].append(rd_feat)#res depth 
                 node_feature[v].append(dssp_feat)#dssp 
-                node_feature[v].append(esm1f_feat[index].tolist())#esm1f 
-                node_feature[v].append(esm1v_feat[index].tolist())#esm1v 
-                node_feature[v].append(sidechain_center[index])#CaCoor SideChian_CenterCoor 
-                node_feature[v].append(sidechain[index])#sidechain angle 
+                node_feature[v].append(esm1f_feat[idx_map[index]].tolist())#esm1f 
+                node_feature[v].append(esm1v_feat[idx_map[index]].tolist())#esm1v 
+                node_feature[v].append(sidechain[idx_map[index]])#sidechain angle 
+                node_feature[v].append(sidechain_center[idx_map[index]])#CaCoor SideChian_CenterCoor 
                 
         node_features, edge_index,edge_attr=generate_residue_graph(pdbname,node_feature,connect,args.padding)
         x = torch.tensor(node_features, dtype=torch.float32)
         edge_index=torch.tensor(edge_index,dtype=torch.long).t().contiguous()
         edge_attr=torch.tensor(edge_attr,dtype=torch.float32)
-        torch.save(x.to(torch.device('cpu')),'../graphfeat_8A/'+pdbname+"_x"+'.pth')
-        torch.save(edge_index.to(torch.device('cpu')),'../graphfeat_8A/'+pdbname+"_edge_index"+'.pth')
-        torch.save(edge_attr.to(torch.device('cpu')),'../graphfeat_8A/'+pdbname+"_edge_attr"+'.pth')
-        # torch.save(energy.to(torch.device('cpu')),'./data/skempi/graphfeat/'+pdbname+"_energy"+'.pth')  
-    
+        torch.save(x.to(torch.device('cpu')),feat_path+pdbname+"_x"+'.pth')
+        torch.save(edge_index.to(torch.device('cpu')),feat_path+pdbname+"_edge_index"+'.pth')
+        torch.save(edge_attr.to(torch.device('cpu')),feat_path+pdbname+"_edge_attr"+'.pth')    

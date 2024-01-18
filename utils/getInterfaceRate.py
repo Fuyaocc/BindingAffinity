@@ -60,6 +60,7 @@ def addConnect(connect,x,y,dis):
 def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #pdbName
     pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
+    pdbName=pdbName.split('.')[0].lower()
     chainGroup=[]
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("temp", pdbPath)
@@ -78,7 +79,7 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #提取所有的坐标
     for chain in model:
         minIndex=9999
-        maxIndex=-1 #记录序列的起始位置
+        maxIndex=-9999 #记录序列的起始位置
         chainID=chain.get_id()
         if chainID==" ":  #有些链是空的
             continue
@@ -102,36 +103,30 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
                 resCoor=res["CA"].get_coord()
             except KeyError:
                 continue
-            complexSequence[pdbName+'_'+chainID][resID-1]=resName
-            if minIndex>resID:
+            complexSequence[pdbName+'_'+chainID][resID+1000]=resName
+            if minIndex>=resID:
                 minIndex=resID
-            if maxIndex<resID:
+            if maxIndex<=resID:
                 maxIndex=resID
             allRes[chainID].add(resName+str(resID))
             resCoor=res["CA"].get_coord()
             CAResName.append(chainID+"_"+resName+str(resID))
             CACoor.append(resCoor)
-        complexSequence[pdbName+'_'+chainID]=complexSequence[pdbName+'_'+chainID][minIndex-1:maxIndex]#截取残基链
+        complexSequence[pdbName+'_'+chainID]=complexSequence[pdbName+'_'+chainID][minIndex+1000:maxIndex+1000+1]#截取残基链
         complexSequence[pdbName+'_'+chainID]=["".join(complexSequence[pdbName+'_'+chainID]),minIndex] #序列信息和序列起始位置
     #判断PDB中的链和interaction info中的链是否完全一样
     chainID_in_interactionInfo=set(interactionInfo)
     if "_" in chainID_in_interactionInfo:
         chainID_in_interactionInfo.remove("_")
     if not chainID_in_PDB==chainID_in_interactionInfo:
-        logging.error("chain in PDB: {}, chain in interaction info {}, not match!".
-                      format(str(chainID_in_PDB),str(chainID_in_interactionInfo)))
+        logging.error("chain in PDB: {}, chain in interaction info {}, not match!".format(str(chainID_in_PDB),str(chainID_in_interactionInfo)))
         #sys.exit()
     #计算distance map
     CACoor=np.array(CACoor)
     dis =  np.linalg.norm(CACoor[:, None, :] - CACoor[None, :, :], axis=-1)
     mask = dis<=interfaceDis
-    inside = dis<=4
+    inside = dis<=5
     resNumber=len(CAResName)
-    #统计interface residue数量
-    # interfaceRes,pyconnect=getinterfaceWithPymol(pdbPath)
-    # for chain in chainGroup:
-    #     if chain not in interfaceRes.keys():
-    #         interfaceRes[chain]=set()
     connect={}
     interfaceRes={}
     # if mutation != None: #YI36A
@@ -146,31 +141,35 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #                     interfaceRes[CAResName[j][0]].add(CAResName[j])
     #                     connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
 
+    interaction_res = set()
+
     for i in range(resNumber):
         for j in range(i+1,resNumber):
-            if mask[i][j] == False:
+            if CAResName[i].split('_')[1][0] == 'X' or CAResName[j].split('_')[1][0] == 'X':continue
+            if mask[i][j] == False or i==j :
                 continue
             if mols_dict[CAResName[i][0]] != mols_dict[CAResName[j][0]]:
-                if CAResName[i] not in interfaceRes.keys():
-                    interfaceRes[CAResName[i]] = []
-                interfaceRes[CAResName[i]].append(CAResName[j])
-                if CAResName[j] not in interfaceRes.keys():
-                    interfaceRes[CAResName[j]] = []
-                interfaceRes[CAResName[j]].append(CAResName[i])
-                interfaceRes[CAResName[i]].append(CAResName[j])
+                if CAResName[i][0] not in interfaceRes.keys():
+                    interfaceRes[CAResName[i][0]] = set()
+                if CAResName[j][0] not in interfaceRes.keys():
+                    interfaceRes[CAResName[j][0]] = set()
+                interfaceRes[CAResName[j][0]].add(CAResName[j])
+                interfaceRes[CAResName[i][0]].add(CAResName[i])
+                interaction_res.add(CAResName[j])
+                interaction_res.add(CAResName[i])
                 connect=addConnect(connect,CAResName[i],CAResName[j],dis[i][j])
     
     for i in range(resNumber):
-        for j in range(i+1,resNumber):
-            if CAResName[i][0] == CAResName[j][0]:
-                if (math.fabs(int(CAResName[j].split('_')[1][1:])-int(CAResName[j].split('_')[1][1:])) == 1 ) or (inside[i][j]== True and CAResName[i] in interfaceRes.keys() and CAResName[j] in interfaceRes.keys()):
-                    if CAResName[i] not in interfaceRes.keys():
-                        interfaceRes[CAResName[i]] = []
-                    interfaceRes[CAResName[i]].append(CAResName[j])
-                    if CAResName[j] not in interfaceRes.keys():
-                        interfaceRes[CAResName[j]] = []
-                    interfaceRes[CAResName[j]].append(CAResName[i])
-                    interfaceRes[CAResName[i]].append(CAResName[j])
+        for j in range(resNumber):
+            if CAResName[i].split('_')[1][0] == 'X' or CAResName[j].split('_')[1][0] == 'X':continue
+            if CAResName[i][0] == CAResName[j][0] and i!=j:
+                if (math.fabs(int(CAResName[i].split('_')[1][1:])-int(CAResName[j].split('_')[1][1:])) == 1  or inside[i][j]== True) and (CAResName[i] in interaction_res or CAResName[j] in interaction_res):
+                    if CAResName[i][0] not in interfaceRes.keys():
+                        interfaceRes[CAResName[i][0]] = set()
+                    if CAResName[j][0] not in interfaceRes.keys():
+                        interfaceRes[CAResName[j][0]] = set()
+                    interfaceRes[CAResName[j][0]].add(CAResName[j])
+                    interfaceRes[CAResName[i][0]].add(CAResName[i])
                     connect=addConnect(connect,CAResName[i],CAResName[j],-dis[i][j])
     return complexSequence,interfaceRes,chainGroup,connect
 

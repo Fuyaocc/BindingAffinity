@@ -12,45 +12,40 @@ def js_div(p_output, q_output, get_softmax=True):
     log_mean_output = F.log_softmax((p_output + q_output)/2, dim=-1)
     return (kl_div(log_mean_output, p_output) + kl_div(log_mean_output, q_output))/2
 
-def mpnn_train(model,dataloader,optimizer,criterion,args,epoch_idx):
+def mpnn_train(model,dataloader,optimizer,criterion, args,epoch_idx):
     model.train()
     predlist = []
     truelist = []
+    names = []
     epoch_loss = 0.0
-    eps = float(epoch_idx)/float(args.epoch)
     for batch_id,data in enumerate(dataloader):
-        data.to(args.device)
+        y_h = data.y.unsqueeze(-1)
         y =  model(data)
-        if epoch_idx == 0:
-            y_h = data.y.unsqueeze(-1)
-        else:
-            y_h = data.y_soft.unsqueeze(-1)
         loss = criterion(y,y_h)
-        data.y_soft = (1-eps)*data.y + eps*(y.squeeze(-1))
         predlist += y.squeeze(-1).cpu().tolist()
-        truelist += y_h.squeeze(-1).cpu().tolist()
+        truelist += data.y.cpu().tolist()
+        names += data.name
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         epoch_loss += loss.detach().item()
     epoch_loss /= (batch_id+1)
-    return model,predlist,truelist,epoch_loss
+    return model,names,predlist,truelist,epoch_loss
 
-def gcn_predict(model,dataloader,criterion,args,i,epoch):
+def gcn_predict(model,dataloader,criterion,args):
     model.eval()
-    epoch_loss=0
+    epoch_loss = 0.0
     predlist = []
     truelist = []
     names = []
     for batch_id,data in enumerate(dataloader):
-        data = data.to(args.device)
         y =  model(data)
         y_h = data.y.unsqueeze(-1)
-        loss = criterion(y,y_h)
+        mse = criterion(y,y_h)
         predlist += y.squeeze(-1).cpu().tolist()
         truelist += y_h.squeeze(-1).cpu().tolist()
         names += data.name
-        epoch_loss += loss.detach().item()
+        epoch_loss += mse.detach().item()
     epoch_loss /= (batch_id+1)
     return names,predlist,truelist,epoch_loss
 

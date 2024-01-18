@@ -24,11 +24,11 @@ def seq2ESM1v(seq, model, alphabet, batch_converter, device):
 if __name__ == '__main__':
     description = "you should add those parameter"                   
     parser = argparse.ArgumentParser(description=description)    
-    parser.add_argument("--input",default="/home/ysbgs/xky/pdb7.txt",help="Output directory, defaults to tmp")
+    parser.add_argument("--input",default="/mnt/data/xukeyu/PPA_Pred/skempi_seq.txt",help="Output directory, defaults to tmp")
     parser.add_argument('--device',default="cuda:0",help="device")
     args = parser.parse_args()
     logging.info("esm1v model loading")
-    esm1v_model_location="esm1v_t33_650M_UR90S_1"
+    esm1v_model_location="/mnt/data/xukeyu/PPA_Pred/feats/esmfeature/esm1v_t33_650M_UR90S_1.pt"
     esm1v_model, alphabet = esm.pretrained.load_model_and_alphabet(esm1v_model_location)
     batch_converter = alphabet.get_batch_converter()
     esm1v_model.to(args.device)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     pdbs={}
     exist_pdb=set()
-    files=os.listdir('/home/ysbgs/xky/bindingaffinity/data/skempi/seq_emb/')
+    files=os.listdir('/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1v/')
     for file in files:
         exist_pdb.add(file.split('.')[0])
     with open(args.input,'r') as f:
@@ -51,5 +51,5 @@ if __name__ == '__main__':
             continue
         ret=seq2ESM1v(v,esm1v_model,alphabet,batch_converter,args.device)
         print(k)
-        torch.save(ret.to(torch.device('cpu')),'/home/ysbgs/xky/bindingaffinity/data/esmfeature/seq_emb/'+k+'.pth')
+        torch.save(ret.to(torch.device('cpu')),'/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1v/'+k+'.pth')
     print(too_long)

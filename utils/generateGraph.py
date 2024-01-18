@@ -43,7 +43,7 @@ def generate_residue_graph(pdb_file,featuredict,connect,padding):
 
     for k,v in connect.items():
         if k not in featuredict.keys():
-                continue
+            continue
         for x in v:
             resName=x.split("=")[0]
             if resName not in featuredict.keys():
