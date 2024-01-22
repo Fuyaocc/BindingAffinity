@@ -4,14 +4,6 @@ logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(filename)s[line:
 from   torch.nn  import KLDivLoss
 import torch.nn.functional as F
 
-def js_div(p_output, q_output, get_softmax=True):
-    kl_div = KLDivLoss(reduction='batchmean')
-    if get_softmax:
-        p_output = F.softmax(p_output,dim=-1)
-        q_output = F.softmax(q_output,dim=-1)
-    log_mean_output = F.log_softmax((p_output + q_output)/2, dim=-1)
-    return (kl_div(log_mean_output, p_output) + kl_div(log_mean_output, q_output))/2
-
 def mpnn_train(model,dataloader,optimizer,criterion, args,epoch_idx):
     model.train()
     predlist = []

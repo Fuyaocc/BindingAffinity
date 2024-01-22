@@ -60,15 +60,19 @@ def addConnect(connect,x,y,dis):
 def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #pdbName
     pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
-    pdbName=pdbName.split('.')[0].lower()
-    chainGroup=[]
+    # pdbName=pdbName.split('.')[0].upper()
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("temp", pdbPath)
     interactionInfo=''
     for chain in structure.get_chains():
-        chainGroup.append(chain.get_id())
         interactionInfo=interactionInfo+'_'+chain.get_id()
     interactionInfo=interactionInfo[1:]
+
+    mutation_set = set()
+    mutation_idx = []
+    for mut in mutation:
+        mutation_set.add(mut[1]+'_'+mut[-1]+mut[2:-1])
+
     #先计算interface residue
     model=structure[0]
     allRes={}  #complex每条链的有效残基
@@ -111,6 +115,8 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
             allRes[chainID].add(resName+str(resID))
             resCoor=res["CA"].get_coord()
             CAResName.append(chainID+"_"+resName+str(resID))
+            if (chainID+"_"+resName+str(resID)) in mutation_set:
+                mutation_idx.append(len(CAResName)-1)
             CACoor.append(resCoor)
         complexSequence[pdbName+'_'+chainID]=complexSequence[pdbName+'_'+chainID][minIndex+1000:maxIndex+1000+1]#截取残基链
         complexSequence[pdbName+'_'+chainID]=["".join(complexSequence[pdbName+'_'+chainID]),minIndex] #序列信息和序列起始位置
@@ -129,24 +135,13 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     resNumber=len(CAResName)
     connect={}
     interfaceRes={}
-    # if mutation != None: #YI36A
-    #     for mut in mutation:
-    #         res=mut[1]+'_'+mut[-1]+mut[2:-1]
-    #         idx=int(mut[2:-1])
-    #         interfaceRes[mut[1]].add(res)
-    #         for j in range(idx+1,resNumber):
-    #             if mask[idx-1][j]:
-    #                 if CAResName[idx-1][0] != CAResName[j][0] :
-    #                     interfaceRes[CAResName[idx-1][0]].add(CAResName[idx-1])
-    #                     interfaceRes[CAResName[j][0]].add(CAResName[j])
-    #                     connect = addConnect(connect,CAResName[idx-1],CAResName[j],dis[idx-1][j])
 
     interaction_res = set()
 
     for i in range(resNumber):
         for j in range(i+1,resNumber):
             if CAResName[i].split('_')[1][0] == 'X' or CAResName[j].split('_')[1][0] == 'X':continue
-            if mask[i][j] == False or i==j :
+            if mask[i][j] == False or i==j or CAResName[i][0] not in mols_dict.keys() or CAResName[j][0] not in mols_dict.keys():
                 continue
             if mols_dict[CAResName[i][0]] != mols_dict[CAResName[j][0]]:
                 if CAResName[i][0] not in interfaceRes.keys():
@@ -161,7 +156,7 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     
     for i in range(resNumber):
         for j in range(resNumber):
-            if CAResName[i].split('_')[1][0] == 'X' or CAResName[j].split('_')[1][0] == 'X':continue
+            if CAResName[i].split('_')[1][0] == 'X' or CAResName[j].split('_')[1][0] == 'X' or CAResName[i][0] not in mols_dict.keys() or CAResName[j][0] not in mols_dict.keys():continue
             if CAResName[i][0] == CAResName[j][0] and i!=j:
                 if (math.fabs(int(CAResName[i].split('_')[1][1:])-int(CAResName[j].split('_')[1][1:])) == 1  or inside[i][j]== True) and (CAResName[i] in interaction_res or CAResName[j] in interaction_res):
                     if CAResName[i][0] not in interfaceRes.keys():
@@ -171,7 +166,21 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
                     interfaceRes[CAResName[j][0]].add(CAResName[j])
                     interfaceRes[CAResName[i][0]].add(CAResName[i])
                     connect=addConnect(connect,CAResName[i],CAResName[j],-dis[i][j])
-    return complexSequence,interfaceRes,chainGroup,connect
+    
+    for idx in mutation_idx:
+        if CAResName[idx][0] in interfaceRes.keys() and CAResName[idx] in interfaceRes[CAResName[idx][0]]:continue
+        for j in range(resNumber):
+            if j != idx:
+                if CAResName[j].split('_')[1][0] == 'X' or CAResName[j][0] not in mols_dict.keys():continue
+                if mask[idx][j]:
+                    if CAResName[idx][0] not in interfaceRes.keys():
+                        interfaceRes[CAResName[idx][0]] = set()
+                    if CAResName[j][0] not in interfaceRes.keys():
+                        interfaceRes[CAResName[j][0]] = set()
+                    interfaceRes[CAResName[idx][0]].add(CAResName[idx])
+                    interfaceRes[CAResName[j][0]].add(CAResName[j])
+                    connect = addConnect(connect,CAResName[idx],CAResName[j],dis[idx][j])
+    return complexSequence,interfaceRes,connect
 
 if __name__ == '__main__':
     seq,interfaceDict,_,connect=getInterfaceRateAndSeq('/mnt/data/xukeyu/data/pdbs/1ay7.pdb','A_B')

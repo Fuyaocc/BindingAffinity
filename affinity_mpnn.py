@@ -28,12 +28,14 @@ if __name__ == '__main__':
     print(args)
 
     complexdict={}
-    for line in open(args.inputdir+'All_set.txt'):
+    for line in open(args.inputdir+'PIPR_format_dataset.txt'):
        blocks=re.split('\t|\n|    ',line)
        pdbname=blocks[0]
+       if pdbname[-2:] == 'wt':
+           pdbname = pdbname[:4].lower()
        complexdict[pdbname]=float(blocks[1])
     
-    filter_set = set()#can't cal dssp or seq too long
+    filter_set = set()
     with open(args.inputdir+'filter_set.txt') as f:
         for line in f:
             filter_set.add(line[:-1])
@@ -43,6 +45,7 @@ if __name__ == '__main__':
        blocks=re.split('\t|\n|    ',line)
        pdbname=blocks[0]
        test_set.add(pdbname)
+       
     files=os.listdir(args.featdir)
     graph_dict=set()
     for file in files:
@@ -52,7 +55,7 @@ if __name__ == '__main__':
     labelList=[]
     
     for pdbname in complexdict.keys():
-        if pdbname in filter_set :continue 
+        # if pdbname in filter_set :continue 
         #local redisue
         if pdbname in graph_dict:
             logging.info("load pdbbind data graph :"+pdbname)

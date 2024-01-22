@@ -20,15 +20,15 @@ if __name__ == '__main__':
 
     complexdict={}
 
-    for line in open(args.inputdir+'prodigy_dataset.txt'):
+    for line in open(args.inputdir+'skempi_data.txt'):
         blocks=re.split('\t|\n',line)
         pdbname=blocks[0]
         complexdict[pdbname]=blocks[1]
             
-    exist_files = os.listdir('../graph_res12A/')
+    exist_files = os.listdir('../graphfeat_res12A/')
     graph_dict=set()
     for file in exist_files:
-        graph_dict.add(file.split('_')[0])
+        graph_dict.add(file.split('.')[0][:-2])
     
     complex_mols = {}
     with open('./data/pdb_mols.txt','r') as f:
@@ -39,27 +39,42 @@ if __name__ == '__main__':
                 for x in blocks[i]:
                     mols_dict[x] = i-1
             complex_mols[blocks[0]] = mols_dict
-
+    
+    for name in complexdict.keys():
+        if len(name) == 4:continue
+        tmp = name.split('-')[0]
+        chains = tmp.split('_')[1:]
+        mols_dict = {}
+        for i in range(len(chains)):
+            for c in chains[i]:
+                mols_dict[c] = i
+        complex_mols[name] = mols_dict
+    
     complex_mols['3cph']={'A':0,'B':1}
     complex_mols['4cpa']={'A':0,'B':1}
     
-    resfeat=getAAOneHotPhys()
+    resfeat = getAAOneHotPhys()
 
     graph_path = '../graph_res12A/'
     feat_path = '../graphfeat_res12A/'
 
     for pdbname in complexdict.keys():
-        #if pdbname in graph_dict:continue
+        # if pdbname in graph_dict:continue
         # pdb_path = '/mnt/data/xukeyu/PPA_Pred/PP/'+pdbname+'.ent.pdb'
-        if pdbname != '3cph':continue
-        pdb_path = '/mnt/data/xukeyu/PPA_Pred/PRODIGYdataset/'+pdbname.upper()+'.pdb'
-        print(pdb_path)
+        # if pdbname != '3SE3_B_A-YB43M+NB44D+SB47L':continue
+        pdb_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'+pdbname+'.pdb'
         seq_path = graph_path+pdbname+'_seq.picke'
         interfaceDict_path = graph_path+pdbname+'_interfaceDict.picke'
         connet_path = graph_path+pdbname+'_connect.picke'
-        if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
+        # if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
+        if True:
             logging.info("generate graph:"+pdbname)
-            seq,interfaceDict,chainlist,connect=getInterfaceRateAndSeq(pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis)
+            if len(pdbname) == 4:
+                mutation = None
+            else:
+                tmp = pdbname.split('-')[1]
+                mutation = tmp.split('+')
+            seq,interfaceDict,connect=getInterfaceRateAndSeq(pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis,mutation=mutation)
             with open(seq_path,'wb') as f:
                 pickle.dump(seq, f)
             with open(interfaceDict_path,'wb') as f:
@@ -75,29 +90,33 @@ if __name__ == '__main__':
             with open(connet_path, 'rb') as file:
                 connect = pickle.load(file)
         chainlist=interfaceDict.keys()
-        print(seq)
+        # print(seq)
+        # print(interfaceDict)
+        # print(complex_mols[pdbname])
         if len(chainlist) > 10:continue
-        dssp_path = '../feats/dssp/'+pdbname+'.npy'
-        rd_path = '../feats/rd/'+pdbname+'_rd.npy'
+        dssp_path = '../feats/dssp/'+pdbname+'.pickle'
+        rd_path = '../feats/rd/'+pdbname+'_rd.pickle'
         if os.path.exists(dssp_path):
-            dssp = np.load(dssp_path,allow_pickle=True)
+            with open(dssp_path, 'rb') as file:
+                dssp = pickle.load(file)
         else:
             dssp = getDSSP(pdb_path)
-            if dssp!= None:
-                np.save(dssp_path,dssp,allow_pickle=True)
+            if dssp != None:
+                with open(dssp_path,'wb') as f:
+                    pickle.dump(dssp, f)
 
         if os.path.exists(rd_path):
-            rd = np.load(rd_path,allow_pickle=True).item()
+            with open(rd_path, 'rb') as file:
+                rd = pickle.load(file)
         else:
             rd = getRD(pdb_path)
             if rd!= None:
-                np.save(rd_path,rd,allow_pickle=True)
-        
-        # if rd == None or dssp == None:
-        #     continue
+                with open(rd_path,'wb') as f:
+                    pickle.dump(rd, f)
+
         node_feature={}
         logging.info("generate graph feat:"+pdbname)
-        print(chainlist)
+        # print(chainlist)
         for chain in chainlist:
             seq_chain = seq[pdbname+'_'+chain][0]
             idx_map = {}
@@ -111,9 +130,9 @@ if __name__ == '__main__':
             with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain_center.picke', 'rb') as file:
                 sidechain_center = pickle.load(file)
             reslist=interfaceDict[chain]
-            esm1f_feat=torch.load('../feats/esmfeature/esmif1/'+pdbname+'_'+chain+'.pth')
+            esm1f_feat=torch.load('../feats/esm/skempi/esmif1/'+pdbname+'_'+chain+'.pth')
             esm1f_feat=F.avg_pool1d(esm1f_feat,16,16)
-            esm1v_feat=torch.load('../feats/esmfeature/esm1v/'+pdbname+'_'+chain+'.pth')
+            esm1v_feat=torch.load('../feats/esm/skempi/esm1v/'+pdbname+'_'+chain+'.pth')
             esm1v_feat=F.avg_pool1d(esm1v_feat,40,40)
             s = seq[pdbname+'_'+chain][1]
             for v in reslist:
@@ -122,14 +141,14 @@ if __name__ == '__main__':
                 reduise=v.split('_')[1]
                 index=int(reduise[1:])-int(s)
                 res_key = chain+'_'+str(index+1)
-                if res_key not in dssp.keys(): 
+                if dssp is None or res_key not in dssp.keys(): 
                     dssp_feat=[0.0,0.0,0.0,0.0,0.0]
                 else:
                     dssp_feat=[dssp[res_key][3],dssp[res_key][7],dssp[res_key][9],dssp[res_key][11],dssp[res_key][13]]#[rSA,...]
                     for j in range(len(dssp_feat)):
                         if dssp_feat[j] == 'NA':
                             dssp_feat[j] = 0.0
-                if res_key not in rd.keys():
+                if rd is None or res_key not in rd.keys():
                     rd_feat=[0.0,0.0]
                 else:
                     rd_feat = [rd[res_key][0],rd[res_key][1]]

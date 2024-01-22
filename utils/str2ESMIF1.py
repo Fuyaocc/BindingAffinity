@@ -46,7 +46,7 @@ if __name__ == '__main__':
     esm_dict=set()
     for line in exist_files:
         esm_dict.add(line.split(".")[0][:-2])
-    esmif1_model_location='/mnt/data/xukeyu/PPA_Pred/feats/esmfeature/esm_if1_gvp4_t16_142M_UR50.pt'
+    esmif1_model_location='/mnt/data/xukeyu/PPA_Pred/feats/esm/esm_if1_gvp4_t16_142M_UR50.pt'
     model, alphabet = esm.pretrained.load_model_and_alphabet(esmif1_model_location)
     for param in model.parameters():
         param.requires_grad = False
@@ -63,6 +63,7 @@ if __name__ == '__main__':
     # f = open('/mnt/data/xukeyu/PPA_Pred/skempi_seq.txt','w')
     
     files=os.listdir('/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1v/')
+    exist_pdb = set()
     for file in files:
         exist_pdb.add(file.split('.')[0])
     
@@ -78,15 +79,10 @@ if __name__ == '__main__':
         structure = esm.inverse_folding.util.load_structure(fp, list(chainGroup))
         coords, seqs = esm.inverse_folding.multichain_util.extract_coords_from_complex(structure)
         print(seqs)
-        # for k,v in seqs.items():
-        #     f.write(file.split('.')[0]+'_'+k)
-        #     f.write('\t')
-        #     f.write(v)
-        #     f.write('\n')
         for chain_id in chainGroup:
             if file.split('.')[0]+'_'+chain_id in exist_pdb: continue
             rep = esm.inverse_folding.multichain_util.get_encoder_output_for_complex(model, alphabet, coords, chain_id)
             print(rep.shape)
-            torch.save(rep.to(torch.device('cpu')),'/mnt/data/xukeyu/PPA_Pred/esmfeature_skempi/esm1f1/'+file.split('.')[0]+'_'+chain_id+'.pth')
+            torch.save(rep.to(torch.device('cpu')),'/mnt/data/xukeyu/PPA_Pred/esm/skempi/esmif1/'+file.split('.')[0]+'_'+chain_id+'.pth')
             del rep 
             gc.collect()        
