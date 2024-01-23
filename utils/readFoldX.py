@@ -3,7 +3,7 @@ import os
 
 def readFoldXResult(path,pdbname):
     foldxres=[0.]*25
-    result_path=path+"Interaction_"+pdbname+".ent_AC.fxout"
+    result_path=path+"Interaction_"+pdbname+"_AC.fxout"
     if os.path.exists(result_path)==False:
         os.system("cd /mnt/data/xukeyu/PPA_Pred/data/skempi/"+"&&"+f'/mnt/data/xukeyu/PPA_Pred/foldx/foldx_20241231 --command=AnalyseComplex --pdb="{pdbname}.pdb" --complexWithDNA=false  --output-dir="/mnt/data/xukeyu/PPA_Pred/foldx/foldx_result/"')
     with open(result_path,"r") as f:

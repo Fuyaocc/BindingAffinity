@@ -73,22 +73,35 @@ def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,
         exist_pdb.add(file.split('.')[0])
     
     chainGroup = {}
-    with open(pdbchains_info_path,'r') as f:
-        for line in f:
-            b = re.split('\t|\n',line)
-            chains = []
-            for i in range(1,len(b)):
-                for c in b[i]:
-                    chains.append(c)
-            chainGroup[b[0]] = chains
+    for pdbname in dataset:
+        chains = []
+        names = pdbname.split('-')[0].split('_')[1:]
+        for name in names:
+            for c in name:
+                chains.append(c)
+        chainGroup[pdbname] = chains
+    # with open(pdbchains_info_path,'r') as f:
+    #     for line in f:
+    #         b = re.split('\t|\n',line)
+    #         chains = []
+    #         for i in range(1,len(b)):
+    #             for c in b[i]:
+    #                 chains.append(c)
+    #         chainGroup[b[0]] = chains
     
+    f = open('/mnt/data/xukeyu/PPA_Pred/foldx/skempi_seq.txt','w')
     for pdbname in dataset: #遍历文件夹
         fp=pdbs_path+pdbname+'.ent.pdb'
         parser = PDBParser()
         structure = parser.get_structure("temp", fp)
         print(pdbname+' '+str(chainGroup[pdbname]))
         structure = esm.inverse_folding.util.load_structure(fp, chainGroup[pdbname])
-        coords, _ = esm.inverse_folding.multichain_util.extract_coords_from_complex(structure)
+        coords, seqs = esm.inverse_folding.multichain_util.extract_coords_from_complex(structure)
+        for k,v in seqs.items():
+            f.write(pdbname+'_'+k)
+            f.write('\t')
+            f.write(v)
+            f.write('\n')
         for chain_id in chainGroup[pdbname]:
             # if pdbname.split('.')[0]+'_'+chain_id in exist_pdb: continue
             rep = esm.inverse_folding.multichain_util.get_encoder_output_for_complex(esmif1_model, alphabet, coords, chain_id, device)
@@ -96,6 +109,7 @@ def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,
             # torch.save(rep.to(torch.device('cpu')),out_path+pdbname.split('.')[0]+'_'+chain_id+'.pth')
             del rep 
             gc.collect()
+    f.close()
     
 
 

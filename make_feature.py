@@ -20,10 +20,10 @@ if __name__ == '__main__':
 
     complexdict={}
 
-    for line in open(args.inputdir+'skempi_data.txt'):
+    for line in open('/mnt/data/xukeyu/PPA_Pred/foldx/skempi.txt'):
         blocks=re.split('\t|\n',line)
         pdbname=blocks[0]
-        complexdict[pdbname]=blocks[1]
+        complexdict[pdbname]=0.0
             
     exist_files = os.listdir('../graphfeat_res12A/')
     graph_dict=set()

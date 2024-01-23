@@ -28,28 +28,36 @@ if __name__ == '__main__':
     print(args)
 
     complexdict={}
+    
+    kuxin = set()
+    for line in open(args.inputdir+'skempi_data.txt'):
+        blocks=re.split('\t|\n|    ',line)
+        kuxin.add(blocks[0])
+    origin2clean = {}
+    for line in open(args.inputdir+'skempi_origin2clean.txt'):
+        blocks=re.split('\t|\n|    ',line)
+        origin2clean[blocks[0]]=blocks[1]
+    
     for line in open(args.inputdir+'PIPR_format_dataset.txt'):
-       blocks=re.split('\t|\n|    ',line)
-       pdbname=blocks[0]
-       if pdbname[-2:] == 'wt':
-           pdbname = pdbname[:4].lower()
-       complexdict[pdbname]=float(blocks[1])
+        blocks=re.split('\t|\n|    ',line)
+        pdbname=blocks[0]
+        if pdbname[-2:] == 'wt':
+            pdbname = pdbname[:4].lower()
+        else:
+            if pdbname not in origin2clean.keys():
+                print(pdbname)
+            else:
+                if origin2clean[pdbname] not in kuxin:
+                    print(origin2clean[pdbname])
+                    continue
+                pdbname = origin2clean[pdbname]
+                
+        complexdict[pdbname]=float(blocks[1])
     
     filter_set = set()
     with open(args.inputdir+'filter_set.txt') as f:
         for line in f:
             filter_set.add(line[:-1])
-    
-    test_set = set()
-    for line in open(args.inputdir+'PPIAffinity_test.txt'):
-       blocks=re.split('\t|\n|    ',line)
-       pdbname=blocks[0]
-       test_set.add(pdbname)
-       
-    files=os.listdir(args.featdir)
-    graph_dict=set()
-    for file in files:
-        graph_dict.add(file.split("_")[0])
         
     featureList=[]
     labelList=[]
@@ -57,34 +65,33 @@ if __name__ == '__main__':
     for pdbname in complexdict.keys():
         # if pdbname in filter_set :continue 
         #local redisue
-        if pdbname in graph_dict:
-            logging.info("load pdbbind data graph :"+pdbname)
-            x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
-            edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
-            edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
-            if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
-                energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname)
-                energy=torch.tensor(energy,dtype=torch.float32)
-                torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
-            energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32)
-            y = torch.tensor([complexdict[pdbname]])
-            idx=torch.isnan(x)
-            x[idx] = 0.0
-            idx = torch.isinf(x)
-            x[idx] = float(0.0)
-            energy = energy[:21]
-            idx = torch.isnan(energy)
-            energy[idx] = 0.0
-            pos = x[:, -6:-3]
-            x = torch.cat([x[:, :(-6)], x[:, (-3):]], dim=1)
-            #t = torch.zeros((len(edge_attr), 3))
-            #t[edge_attr < 0, 1] = 1
-            #t[edge_attr >= 0, 0] = 1
-            # t[:,2] = torch.abs(edge_attr)
-            t = torch.abs(edge_attr)
-            data = Data(x=x, edge_index=edge_index,edge_attr=t,y=y,pos=pos,name=pdbname,energy=energy)
-            featureList.append(data)
-            labelList.append(complexdict[pdbname])
+        logging.info("load pdbbind data graph :"+pdbname)
+        x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
+        edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
+        edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
+        if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
+            energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname)
+            energy=torch.tensor(energy,dtype=torch.float32)
+            torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
+        energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32)
+        y = torch.tensor([complexdict[pdbname]])
+        idx=torch.isnan(x)
+        x[idx] = 0.0
+        idx = torch.isinf(x)
+        x[idx] = float(0.0)
+        energy = energy[:21]
+        idx = torch.isnan(energy)
+        energy[idx] = 0.0
+        pos = x[:, -6:-3]
+        x = torch.cat([x[:, :(-6)], x[:, (-3):]], dim=1)
+        #t = torch.zeros((len(edge_attr), 3))
+        #t[edge_attr < 0, 1] = 1
+        #t[edge_attr >= 0, 0] = 1
+        # t[:,2] = torch.abs(edge_attr)
+        t = torch.abs(edge_attr)
+        data = Data(x=x, edge_index=edge_index,edge_attr=t,y=y,pos=pos,name=pdbname,energy=energy)
+        featureList.append(data)
+        labelList.append(complexdict[pdbname])
     logging.info(len(featureList))
 
     TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
