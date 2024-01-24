@@ -70,8 +70,9 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
 
     mutation_set = set()
     mutation_idx = []
-    for mut in mutation:
-        mutation_set.add(mut[1]+'_'+mut[-1]+mut[2:-1])
+    if mutation != None:
+        for mut in mutation:
+            mutation_set.add(mut[1]+'_'+mut[-1]+mut[2:-1])
 
     #先计算interface residue
     model=structure[0]

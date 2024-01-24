@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     complexdict={}
 
-    for line in open('/mnt/data/xukeyu/PPA_Pred/foldx/skempi.txt'):
+    for line in open('/mnt/data/xukeyu/PPA_Pred/wt_pdbs.txt'):
         blocks=re.split('\t|\n',line)
         pdbname=blocks[0]
         complexdict[pdbname]=0.0
@@ -48,10 +48,9 @@ if __name__ == '__main__':
         for i in range(len(chains)):
             for c in chains[i]:
                 mols_dict[c] = i
-        complex_mols[name] = mols_dict
+        complex_mols[name[:4]] = mols_dict
     
     complex_mols['3cph']={'A':0,'B':1}
-    complex_mols['4cpa']={'A':0,'B':1}
     
     resfeat = getAAOneHotPhys()
 
@@ -59,15 +58,16 @@ if __name__ == '__main__':
     feat_path = '../graphfeat_res12A/'
 
     for pdbname in complexdict.keys():
-        # if pdbname in graph_dict:continue
+        pdbname = pdbname[:4]
+        if pdbname.lower() in graph_dict:continue
         # pdb_path = '/mnt/data/xukeyu/PPA_Pred/PP/'+pdbname+'.ent.pdb'
         # if pdbname != '3SE3_B_A-YB43M+NB44D+SB47L':continue
         pdb_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'+pdbname+'.pdb'
         seq_path = graph_path+pdbname+'_seq.picke'
         interfaceDict_path = graph_path+pdbname+'_interfaceDict.picke'
         connet_path = graph_path+pdbname+'_connect.picke'
-        # if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
-        if True:
+        if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
+        # if True:
             logging.info("generate graph:"+pdbname)
             if len(pdbname) == 4:
                 mutation = None
@@ -90,9 +90,6 @@ if __name__ == '__main__':
             with open(connet_path, 'rb') as file:
                 connect = pickle.load(file)
         chainlist=interfaceDict.keys()
-        # print(seq)
-        # print(interfaceDict)
-        # print(complex_mols[pdbname])
         if len(chainlist) > 10:continue
         dssp_path = '../feats/dssp/'+pdbname+'.pickle'
         rd_path = '../feats/rd/'+pdbname+'_rd.pickle'
@@ -125,14 +122,14 @@ if __name__ == '__main__':
                 if seq_chain[o] != 'X':
                     idx_map[o] = ss
                     ss += 1
-            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain.picke', 'rb') as file:
+            with open('../feats/sidechain/'+pdbname.lower()+'_'+chain+'_sidechain.picke', 'rb') as file:
                 sidechain = pickle.load(file)
-            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain_center.picke', 'rb') as file:
+            with open('../feats/sidechain/'+pdbname.lower()+'_'+chain+'_sidechain_center.picke', 'rb') as file:
                 sidechain_center = pickle.load(file)
             reslist=interfaceDict[chain]
-            esm1f_feat=torch.load('../feats/esm/skempi/esmif1/'+pdbname+'_'+chain+'.pth')
+            esm1f_feat=torch.load('../feats/esm/skempi/esmif1/'+pdbname.lower()+'_'+chain+'.pth')
             esm1f_feat=F.avg_pool1d(esm1f_feat,16,16)
-            esm1v_feat=torch.load('../feats/esm/skempi/esm1v/'+pdbname+'_'+chain+'.pth')
+            esm1v_feat=torch.load('../feats/esm/skempi/esm1v/'+pdbname.lower()+'_'+chain+'.pth')
             esm1v_feat=F.avg_pool1d(esm1v_feat,40,40)
             s = seq[pdbname+'_'+chain][1]
             for v in reslist:
@@ -164,12 +161,11 @@ if __name__ == '__main__':
                 node_feature[v].append(esm1f_feat[idx_map[index]].tolist())#esm1f 
                 node_feature[v].append(esm1v_feat[idx_map[index]].tolist())#esm1v 
                 node_feature[v].append(sidechain[idx_map[index]])#sidechain angle 
-                node_feature[v].append(sidechain_center[idx_map[index]])#CaCoor SideChian_CenterCoor 
-                
+                node_feature[v].append(sidechain_center[idx_map[index]][:6])#CaCoor SideChian_CenterCoor 
         node_features, edge_index,edge_attr=generate_residue_graph(pdbname,node_feature,connect,args.padding)
         x = torch.tensor(node_features, dtype=torch.float32)
         edge_index=torch.tensor(edge_index,dtype=torch.long).t().contiguous()
         edge_attr=torch.tensor(edge_attr,dtype=torch.float32)
-        torch.save(x.to(torch.device('cpu')),feat_path+pdbname+"_x"+'.pth')
-        torch.save(edge_index.to(torch.device('cpu')),feat_path+pdbname+"_edge_index"+'.pth')
-        torch.save(edge_attr.to(torch.device('cpu')),feat_path+pdbname+"_edge_attr"+'.pth')    
+        torch.save(x.to(torch.device('cpu')),feat_path+pdbname.lower()+"_x"+'.pth')
+        torch.save(edge_index.to(torch.device('cpu')),feat_path+pdbname.lower()+"_edge_index"+'.pth')
+        torch.save(edge_attr.to(torch.device('cpu')),feat_path+pdbname.lower()+"_edge_attr"+'.pth')    

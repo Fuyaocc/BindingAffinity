@@ -39,6 +39,7 @@ def generate_residue_graph(pdb_file,featuredict,connect,padding):
         emb=[]
         for l in v:
             emb=emb+l
+        # print(k+':'+str(len(emb)))
         graph.add_node(k,embedding=emb)
 
     for k,v in connect.items():

@@ -16,3 +16,6 @@ def readFoldXResult(path,pdbname):
                     foldxres[index]+=float(energy[i])
                     index+=1
     return foldxres
+
+if __name__ == '__main__':
+    energy=readFoldXResult('/mnt/data/xukeyu/PPA_Pred/foldx/foldx_result/','1F47')

@@ -1,4 +1,5 @@
 import pyrosetta;pyrosetta.init()
+from pyrosetta import pose_from_sequence
 from pyrosetta import *
 from pyrosetta.teaching import *
 init()
@@ -12,10 +13,11 @@ def  sidechain_center(dataset_path,pdbs_path,out_path,chain_group):
     pdbs = []
     with open(dataset_path,'r') as f:
         for line in f:
-            pdbs.append(line.split('\t')[0])
+            pdbs.append(re.split('\t|\n',line)[0][:4])
     # 定义主链原子的名称
     backbone_atoms = ["N", "CA", "C", "O"]
 
+    exist_files = os.listdir(out_path)
     for pdb in pdbs:
         print(pdb)
         parser = PDBParser()
@@ -26,6 +28,7 @@ def  sidechain_center(dataset_path,pdbs_path,out_path,chain_group):
         
         for chain in model:
             chain_name = chain.get_id()
+            if pdb.lower()+'_'+chain_name+'_sidechain_center.picke' in exist_files:continue
             sidechain=[]
             for residue in chain:
                 try:
@@ -46,37 +49,35 @@ def  sidechain_center(dataset_path,pdbs_path,out_path,chain_group):
                     sidechain_center = coords
                 coords  += sidechain_center
                 sidechain.append(coords)
-            print('sidechain_center : '+pdb+'_'+chain_name)
-            with open(out_path+pdb+'_'+chain_name+'_sidechain_center.picke', 'wb') as file:
+            print('sidechain_center : '+pdb.lower()+'_'+chain_name)
+            print(len(sidechain[0]))
+            with open(out_path+pdb.lower()+'_'+chain_name+'_sidechain_center.picke', 'wb') as file:
                 pickle.dump(sidechain, file)
         
 
 
-def sidechain_angle(args,dataset_path,out_path):
+def sidechain_angle(dataset_path,seq_path,out_path):
     pdbs=[]
 
-    exist_pdbs=os.listdir("./sidechain/")
-    filter=set(["1de4","1ogy","1tzn","2wss","3lk4","3sua","3swp","4r8i","6c74"])
-    filter.add('4nzl')
-    filter.add('3l33')
-    filter.add('4dvg')
-    for v in exist_pdbs:
-        filter.add(v.split('_')[0])
+    exist_pdbs=os.listdir(out_path)
 
-    with open(args.input,'r') as f:
-        for line in f:
-            pdbs.append(line.split('\t')[0])
-
-    seqdic={}
-    with open("/home/ysbgs/xky/pdb_chain.txt",'r') as f:
+    with open(seq_path,'r') as f:
         for line in f:
             v=re.split("\t|\n",line)
-            seqdic[v[0]]=len(v[1])
+            key = v[0][:4].lower()+v[0][-2:]
+            pdbs.append(key)
+
+    seqdic={}
+    with open(seq_path,'r') as f:
+        for line in f:
+            v=re.split("\t|\n",line)
+            key = v[0][:4].lower()+v[0][-2:]
+            seqdic[key]=len(v[1])
 
     for pdb in pdbs:
-        if pdb[:-2] in filter:continue
-        
-        pose=pose_from_file('./splitByChain/'+pdb+'.txt')
+        # if pdb[:-2] in filter:continue
+        if pdb+'_sidechain.picke' in exist_pdbs:continue
+        pose = pose_from_pdb('/mnt/data/xukeyu/PPA_Pred/data/split_by_chain/'+pdb+'.pdb')
         sidechain=[]
         for i in range(1,seqdic[pdb]+1):
             res_sidechain=[]
@@ -98,24 +99,32 @@ def sidechain_angle(args,dataset_path,out_path):
                     chi=0.0
                 res_sidechain.append(chi)
             sidechain.append(res_sidechain)
-        with open('./sidechain/'+pdb+'_sidechain.picke', 'wb') as file:
+        with open(out_path+pdb+'_sidechain.picke', 'wb') as file:
             pickle.dump(sidechain, file)
         
 
 
 if __name__ == '__main__':
-    dataset_path = '/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/skempi_data.txt'
+    dataset_path = '/mnt/data/xukeyu/PPA_Pred/wt_pdbs.txt'
     pdbs_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'
     pdbchains_info_path = '/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/pdb_mols.txt'
     out_path = '/mnt/data/xukeyu/PPA_Pred/feats/sidechain/'
+    seq_path = '/mnt/data/xukeyu/PPA_Pred/wt_pdbs_seq.txt'
     chain_group = {}
-    with open(pdbchains_info_path,'r') as f:
-        for line in f:
-            b = re.split('\t|\n',line)
-            chains = set()
-            for i in range(1,len(b)):
-                for c in b[i]:
-                    chains.add(c)
-            chain_group[b[0]] = chains
-    sidechain_center(dataset_path,pdbs_path,out_path,chain_group)
-    # sidechain_angle(dataset_path,pdbs_path,out_path)
+    for pdbname in dataset_path:
+        chains = []
+        names = pdbname.split('-')[0].split('_')[1:]
+        for name in names:
+            for c in name:
+                chains.append(c)
+        chain_group[pdbname] = chains
+    # with open(pdbchains_info_path,'r') as f:
+    #     for line in f:
+    #         b = re.split('\t|\n',line)
+    #         chains = set()
+    #         for i in range(1,len(b)):
+    #             for c in b[i]:
+    #                 chains.add(c)
+    #         chain_group[b[0]] = chains
+    # sidechain_center(dataset_path,pdbs_path,out_path,chain_group)
+    sidechain_angle(dataset_path,seq_path,out_path)

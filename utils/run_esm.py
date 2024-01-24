@@ -21,15 +21,16 @@ def run_esm1v(esm1v_model_location,seqdata_path,out_path,device):
     logging.info("esm1v esmif1_model load finish")
     
     exist_pdb=set()
-    out_path=os.listdir(out_path)
-    for file in out_path:
+    files=os.listdir(out_path)
+    for file in files:
         exist_pdb.add(file.split('.')[0])
     
     pdb_seqs={}
     with open(seqdata_path,'r') as f:
         for line in f:
             v=re.split('\t|\n',line)
-            pdb_seqs[v[0]]=v[1]
+            key = v[0][:4].lower()+v[0][-2:]
+            pdb_seqs[key]=v[1]
 
     for k,v in pdb_seqs.items():
         
@@ -49,10 +50,10 @@ def run_esm1v(esm1v_model_location,seqdata_path,out_path,device):
             with torch.no_grad():
                 x=esm1v_model(batch_tokens_masked.to(device))
             res.append(x[0][i+1].tolist())
-        res=torch.Tensor(res).to(device)
+        res=torch.tensor(res)
         
         logging.info('Finish esm1v\'s embedding : '+k)
-        torch.save(res.to(torch.device('cpu')),out_path+k+'.pth')
+        torch.save(res,out_path+k+'.pth')
     
 def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,out_path,device):
     esmif1_model_location = esmif1_model_location
@@ -91,7 +92,7 @@ def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,
     
     f = open('/mnt/data/xukeyu/PPA_Pred/foldx/skempi_seq.txt','w')
     for pdbname in dataset: #遍历文件夹
-        fp=pdbs_path+pdbname+'.ent.pdb'
+        fp=pdbs_path+pdbname[:4]+'.pdb'
         parser = PDBParser()
         structure = parser.get_structure("temp", fp)
         print(pdbname+' '+str(chainGroup[pdbname]))
@@ -103,10 +104,10 @@ def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,
             f.write(v)
             f.write('\n')
         for chain_id in chainGroup[pdbname]:
-            # if pdbname.split('.')[0]+'_'+chain_id in exist_pdb: continue
+            if pdbname[:4].lower()+'_'+chain_id in exist_pdb: continue
             rep = esm.inverse_folding.multichain_util.get_encoder_output_for_complex(esmif1_model, alphabet, coords, chain_id, device)
-            logging.info('Finish esmif1\'s embedding : '+pdbname+'_'+chain_id)
-            # torch.save(rep.to(torch.device('cpu')),out_path+pdbname.split('.')[0]+'_'+chain_id+'.pth')
+            logging.info('Finish esmif1\'s embedding : '+pdbname[:4].lower()+'_'+chain_id)
+            torch.save(rep.to(torch.device('cpu')),out_path+pdbname[:4].lower()+'_'+chain_id+'.pth')
             del rep 
             gc.collect()
     f.close()
@@ -115,13 +116,13 @@ def run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,
 
 if __name__ == '__main__':
     device = 'cuda:3'
-    dataset_path = '/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/All_set.txt'
-    seqdata_path = '/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/skempi_seq.txt'
-    pdbs_path = '/mnt/data/xukeyu/PPA_Pred/data/PP/'
-    esm1v_out_path = '/mnt/data/xukeyu/PPA_Pred/feats/esm/pdbbind/esm1v/'
-    esmif1_out_path = '/mnt/data/xukeyu/PPA_Pred/feats/esm/pdbbind/esmif1/'
+    dataset_path = '/mnt/data/xukeyu/PPA_Pred/wt_pdbs.txt'
+    seqdata_path = '/mnt/data/xukeyu/PPA_Pred/wt_pdbs_seq.txt'
+    pdbs_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'
+    esm1v_out_path = '/mnt/data/xukeyu/PPA_Pred/feats/esm/skempi/esm1v/'
+    esmif1_out_path = '/mnt/data/xukeyu/PPA_Pred/feats/esm/skempi/esmif1/'
     esm1v_model_location = '/mnt/data/xukeyu/PPA_Pred/feats/esm/esm1v_t33_650M_UR90S_1.pt'
     esmif1_model_location = '/mnt/data/xukeyu/PPA_Pred/feats/esm/esm_if1_gvp4_t16_142M_UR50.pt'
     pdbchains_info_path = '/mnt/data/xukeyu/PPA_Pred/BindingAffinity/data/pdb_mols.txt'
-    run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,esmif1_out_path,device)
-    # run_esm1v(esm1v_model_location,seqdata_path,esm1v_out_path,device)
+    # run_esmif1(esmif1_model_location,dataset_path,pdbs_path,pdbchains_info_path,esmif1_out_path,device)
+    run_esm1v(esm1v_model_location,seqdata_path,esm1v_out_path,device)
