@@ -12,7 +12,7 @@ def get_args():
     parser.add_argument("--outdir",default="./tmp/",help="Output directory, defaults to tmp")
     parser.add_argument('--device', type=str, default='cuda:1',help='set device')
     parser.add_argument('--inputdir',type=str,default="./data/",help='input data dictionary')
-    parser.add_argument('--foldxdir',type=str,default="/mnt/data/xukeyu/PPA_Pred/foldx/",help='foldx result path')
+    parser.add_argument('--foldxdir',type=str,default="../foldx/",help='foldx result path')
     parser.add_argument('--dim',type=int,default=256,help='model input dim')
     parser.add_argument('--epoch',type=int,default=3000,help='trainning epoch')
     parser.add_argument('--batch_size',type=int,default=128,help='batch size ')

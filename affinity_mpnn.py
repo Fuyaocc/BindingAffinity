@@ -42,9 +42,7 @@ if __name__ == '__main__':
         #     if pdbname in origin2clean.keys():
         #         pdbname = origin2clean[pdbname]
         complexdict[pdbname]=float(blocks[1])
-    
-    filter_fp = open(args.inputdir+'dg_data/filter_set.txt','w')
-    
+        
     exist_files = os.listdir(args.featdir)
     graph_set = set()
     for file in exist_files:
@@ -54,18 +52,9 @@ if __name__ == '__main__':
     labelList=[]
     
     for pdbname in complexdict.keys():
-        # if pdbname in filter_set :continue 
-        if pdbname not in graph_set:
-            filter_fp.write(pdbname)
-            filter_fp.write('\n')
-            continue
         #local redisue
         logging.info("load pdbbind data graph :"+pdbname)
         x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
-        if x.shape[0] ==0 :
-            filter_fp.write(pdbname)
-            filter_fp.write('\n')
-            continue
         edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
         edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
         if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
@@ -95,7 +84,6 @@ if __name__ == '__main__':
         featureList.append(data)
         labelList.append(complexdict[pdbname])
     logging.info(len(featureList))
-    filter_fp.close()
     TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
     k = 5
     #交叉验证
