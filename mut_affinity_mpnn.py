@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 
 if __name__ == '__main__':
-    # torch.set_num_threads(2)
+    torch.set_num_threads(2)
 
     args=get_args()
     print(args)
@@ -30,42 +30,34 @@ if __name__ == '__main__':
     complexdict={}
     
     origin2clean = {}
-    # for line in open(args.inputdir+'skempi_origin2clean.txt'):
-    #     blocks=re.split('\t|\n',line)
-    #     origin2clean[blocks[0]]=blocks[1]
-    for line in open(args.inputdir+'dg_data/All_set.txt'):
+    for line in open(args.inputdir+'dg_data/skempi_origin2clean.txt'):
+        blocks=re.split('\t|\n',line)
+        origin2clean[blocks[0]]=blocks[1]
+    print(origin2clean['2I9B_A_E-HE143A'])
+    for line in open(args.inputdir+'dg_data/PIPR_format_dataset.txt'):
         blocks=re.split('\t|\n|    ',line)
         pdbname=blocks[0]
-        # if pdbname[-2:] == 'wt':
-        #     pdbname = pdbname[:4].lower()
-        # else:
-        #     if pdbname in origin2clean.keys():
-        #         pdbname = origin2clean[pdbname]
+        if pdbname[-2:] == 'wt':
+            pdbname = pdbname[:4].lower()
+            print(blocks[0][:-3])
+        else:
+            if pdbname in origin2clean.keys():
+                pdbname = origin2clean[pdbname]
         complexdict[pdbname]=float(blocks[1])
     
-    filter_fp = open(args.inputdir+'dg_data/filter_set.txt','w')
-    
-    exist_files = os.listdir(args.featdir)
-    graph_set = set()
-    for file in exist_files:
-        graph_set.add(file[:4])
+    filter_set = set()
+    with open(args.inputdir+'dg_data/filter_set.txt') as f:
+        for line in f:
+            filter_set.add(line[:-1])
         
     featureList=[]
     labelList=[]
     
     for pdbname in complexdict.keys():
         # if pdbname in filter_set :continue 
-        if pdbname not in graph_set:
-            filter_fp.write(pdbname)
-            filter_fp.write('\n')
-            continue
         #local redisue
         logging.info("load pdbbind data graph :"+pdbname)
         x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
-        if x.shape[0] ==0 :
-            filter_fp.write(pdbname)
-            filter_fp.write('\n')
-            continue
         edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
         edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
         if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
@@ -95,7 +87,7 @@ if __name__ == '__main__':
         featureList.append(data)
         labelList.append(complexdict[pdbname])
     logging.info(len(featureList))
-    filter_fp.close()
+
     TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
     k = 5
     #交叉验证
