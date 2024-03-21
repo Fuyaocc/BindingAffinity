@@ -26,46 +26,44 @@ if __name__ == '__main__':
         for line in f:
             blocks = re.split('\t|\n',line)
             ligand_name=blocks[0]
-            complex_dict[ligand_name]=float(blocks[1])
-
-    distillation_data = {}
-    with open('./data/distillation_data.txt') as f:
-        for line in f:
-            v = re.split("\t|\n",line)
-            distillation_data[v[0]]=float(v[1])
+            complex_dict[ligand_name] = 0.0
 
     files=os.listdir(args.featdir)
-    graph_dict=set()
+    graph_set=set()
     for file in files:
-        graph_dict.add(file.split("_")[0])
-
-    complex_list=set()
-    pdbs=os.listdir(args.featdir)
-    for pdb in pdbs:
-        if pdb[:4] in complex_dict.keys():
-            complex_list.add(pdb[:4])
+        graph_set.add(file.split(".")[0])
     
     featureList=[]
     labelList=[]
 
-    for pdbname in complex_list:
-
+    for pdbname in complex_dict.keys():
+        # if pdbname+'_x' not in graph_set:continue
         logging.info("load ligand data graph :"+pdbname)
         x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
         edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
         edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
-        if os.path.exists(args.featdir+pdbname+"_energy"+'.pth') == False:
-            energy=readFoldXResult(args.foldxPath,pdbname)
+        if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
+            try:
+                energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname.upper())
+            except Exception:
+                energy=[0.]*22
             energy=torch.tensor(energy,dtype=torch.float32)
-            torch.save(energy.to(torch.device('cpu')),args.featdir+pdbname+"_energy"+'.pth')
-        energy=torch.load(args.featdir+pdbname+"_energy"+'.pth').to(torch.float)
-        # print(x.shape)
+            torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
+        energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32)
+        if x.shape[0] == 0 :continue        
+        y = torch.tensor([complex_dict[pdbname]])
         idx=torch.isnan(x)
         x[idx] = 0.0
         idx = torch.isinf(x)
-        x[idx] = 0.0
+        x[idx] = float(0.0)
         energy = energy[:21]
-        data = Data(x=x, edge_index=edge_index,edge_attr=edge_attr,y=complex_dict[pdbname],distillation_y=distillation_data[pdbname],name=pdbname,energy=energy)
+        idx = torch.isnan(energy)
+        energy[idx] = 0.0
+        pos = x[:, -6:-3]
+        x = torch.cat([x[:,:10],x[:, 31:]],dim=1)
+        x = torch.cat([x[:, :(-6)], x[:, (-3):]], dim=1)
+        t = torch.abs(edge_attr)
+        data = Data(x=x, edge_index=edge_index,edge_attr=t,y=y,pos=pos,name=pdbname,energy=energy)
         featureList.append(data)
         labelList.append(complex_dict[pdbname])
 
@@ -75,7 +73,7 @@ if __name__ == '__main__':
     best_mse = 0.0
     test_x_tensor = torch.cat([data.x for data in featureList], dim=0)
     for i in range(5):
-        with open(f'./tmp/{args.preprocess+str(i)}_scaler.pkl', 'rb') as f:
+        with open(f'./tmp/scaler/standard_scaler{i}.picke', 'rb') as f:
             scaler = pickle.load(f)
         test_x_array_standardized = scaler.transform(test_x_tensor.numpy())
         test__x_tensor_standardized = torch.tensor(test_x_array_standardized, dtype=torch.float32)
@@ -84,18 +82,19 @@ if __name__ == '__main__':
             num_samples = data.x.size(0)
             end_idx = start_idx + num_samples
             data.x = test__x_tensor_standardized[start_idx:end_idx]
+            data = data.to(args.device)
             start_idx = end_idx
         
         net=Net(input_dim=args.dim
                         ,hidden_dim=64
-                        ,output_dim=32)
+                        ,output_dim=64)
         net.to(args.device)
-        net.load_state_dict(torch.load(args.modeldir+f"affinity_model{i}_dim{args.dim}_foldx.pt"))
+        net.load_state_dict(torch.load(args.modeldir+f"PPA_Pred_gnn{i}_dim{args.dim}_foldx.pt"))
         dataset=MyGCNDataset(featureList)
         dataloader=DataLoader(dataset,batch_size=args.batch_size,shuffle=True)
         criterion = torch.nn.MSELoss()
         
-        names, test_prelist, test_truelist,test_loss = gcn_predict(net,dataloader,criterion,args,i,0)
+        names, test_prelist, test_truelist,test_loss = gcn_predict(net,dataloader,criterion,args)
         df = pd.DataFrame({'label':test_truelist, 'pre':test_prelist})
         mae=F.l1_loss(torch.tensor(test_prelist),torch.tensor(test_truelist))
         mse=F.mse_loss(torch.tensor(test_prelist),torch.tensor(test_truelist))

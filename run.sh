@@ -1,1 +1,1 @@
-python affinity_mpnn.py --device cuda:0 --epoch 6000 --featdir ../graphfeat_res12A/ --dim 137 --logdir=./log/ --batch_size 256 --alpha 2.0 --outdir ./tmp/
+nohup python affinity_mpnn.py --device cuda:0 --epoch 6000 --featdir ../graphfeat_res12A/ --dim 116 --logdir=./log/ --batch_size 256 --alpha 2.0 --outdir ./tmp/ > ./tmp/.log 2>&1 &

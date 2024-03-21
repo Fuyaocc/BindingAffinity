@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 from torch_geometric.nn import MessagePassing,global_max_pool
 from torch_geometric.nn.pool import global_max_pool,max_pool,graclus
 from torch_geometric.utils import add_self_loops, degree
@@ -54,8 +55,9 @@ class Net(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(Net, self).__init__()
         
-        self.mpnn_0 = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=hidden_dim, drop_weight=0.2)
-        self.mpnn_1 = MPNN(input_dim=hidden_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.3)
+        self.mpnn_0 = MPNN(input_dim=input_dim,hidden_dim=input_dim, output_dim=input_dim, drop_weight=0.2)
+        self.mpnn_1 = MPNN(input_dim=input_dim,hidden_dim=input_dim, output_dim=input_dim, drop_weight=0.3)
+        self.mpnn_2 = MPNN(input_dim=input_dim,hidden_dim=hidden_dim, output_dim=output_dim, drop_weight=0.3)
         
         self.emb = torch.nn.Sequential(
             nn.Linear(21, 8),
@@ -80,11 +82,20 @@ class Net(nn.Module):
 
     def forward(self, data):
         e = data.energy
+        origin = copy.deepcopy(data)
         data.x = self.mpnn_0(data.x, data.edge_index, data.edge_attr)
+        data.x = data.x + origin.x
         cluster = graclus(data.edge_index, num_nodes=data.x.shape[0])
         data.x = F.leaky_relu(data.x)
         data = max_pool(cluster,data)
+        origin = max_pool(cluster,origin)
         x = self.mpnn_1(data.x, data.edge_index, data.edge_attr)
+        data.x = data.x + origin.x
+        cluster = graclus(data.edge_index, num_nodes=data.x.shape[0])
+        data.x = F.leaky_relu(data.x)
+        data = max_pool(cluster,data)
+        x = self.mpnn_2(data.x, data.edge_index, data.edge_attr)
+        
         x = F.leaky_relu(x)
         x = global_max_pool(x, data.batch)
         e = e.reshape(x.shape[0],21)

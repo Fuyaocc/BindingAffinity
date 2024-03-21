@@ -22,72 +22,75 @@ from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 
 if __name__ == '__main__':
-    torch.set_num_threads(2)
+    # torch.set_num_threads(2)
 
     args=get_args()
     print(args)
 
     complexdict={}
-    
-    origin2clean = {}
-    for line in open(args.inputdir+'dg_data/skempi_origin2clean.txt'):
-        blocks=re.split('\t|\n',line)
-        origin2clean[blocks[0]]=blocks[1]
-    print(origin2clean['2I9B_A_E-HE143A'])
-    for line in open(args.inputdir+'dg_data/PIPR_format_dataset.txt'):
+    val_feature = []
+    for i in range(5):
+        k_set = []
+        for  line in open(args.inputdir+f'ddg_data/M4005_{i}.txt'):
+            blocks=re.split('\t|\n|    ',line)
+            pdbname = blocks[0]
+            muts = blocks[1].split(',')
+            for i in range(len(muts)):
+                if i==0:
+                    pdbname+='-'
+                else:
+                    pdbname+='+'
+                pdbname+=muts[i]
+            k_set.append(pdbname)
+        val_feature.append(k_set)
+
+    for line in open(args.inputdir+'dg_data/skempi_data.txt'):
         blocks=re.split('\t|\n|    ',line)
         pdbname=blocks[0]
-        if pdbname[-2:] == 'wt':
-            pdbname = pdbname[:4].lower()
-            print(blocks[0][:-3])
-        else:
-            if pdbname in origin2clean.keys():
-                pdbname = origin2clean[pdbname]
         complexdict[pdbname]=float(blocks[1])
     
-    filter_set = set()
-    with open(args.inputdir+'dg_data/filter_set.txt') as f:
-        for line in f:
-            filter_set.add(line[:-1])
+    
+    exist_files = os.listdir(args.featdir)
+    graph_set = set()
+    for file in exist_files:
+        graph_set.add(file.split('.')[0])
         
     featureList=[]
-    labelList=[]
     
-    for pdbname in complexdict.keys():
-        # if pdbname in filter_set :continue 
-        #local redisue
-        logging.info("load pdbbind data graph :"+pdbname)
-        x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
-        edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
-        edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
-        if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
-            try:
-                energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname.upper())
-            except Exception:
-                energy=[0.]*22
-            energy=torch.tensor(energy,dtype=torch.float32)
-            torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
-        energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32)
-        y = torch.tensor([complexdict[pdbname]])
-        idx=torch.isnan(x)
-        x[idx] = 0.0
-        idx = torch.isinf(x)
-        x[idx] = float(0.0)
-        energy = energy[:21]
-        idx = torch.isnan(energy)
-        energy[idx] = 0.0
-        pos = x[:, -6:-3]
-        x = torch.cat([x[:, :(-6)], x[:, (-3):]], dim=1)
-        #t = torch.zeros((len(edge_attr), 3))
-        #t[edge_attr < 0, 1] = 1
-        #t[edge_attr >= 0, 0] = 1
-        # t[:,2] = torch.abs(edge_attr)
-        t = torch.abs(edge_attr)
-        data = Data(x=x, edge_index=edge_index,edge_attr=t,y=y,pos=pos,name=pdbname,energy=energy)
-        featureList.append(data)
-        labelList.append(complexdict[pdbname])
-    logging.info(len(featureList))
-
+    for i in range(5):
+        tmp = []
+        for pdbname in val_feature[i]:
+            if pdbname+'_x' not in graph_set: continue
+            logging.info("load pdbbind data graph :"+pdbname)
+            x = torch.load(args.featdir+pdbname+"_x"+'.pth').to(torch.float32)
+            edge_index=torch.load(args.featdir+pdbname+"_edge_index"+'.pth').to(torch.int64)
+            edge_attr=torch.load(args.featdir+pdbname+"_edge_attr"+'.pth').to(torch.float32)
+            if os.path.exists(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth') == False:
+                try:
+                    energy=readFoldXResult(args.foldxdir+'foldx_result/',pdbname.upper())
+                except Exception:
+                    energy=[0.]*22
+                energy=torch.tensor(energy,dtype=torch.float32)
+                torch.save(energy.to(torch.device('cpu')),args.foldxdir+'energy/'+pdbname+'_energy.pth')
+            energy=torch.load(args.foldxdir+'energy/'+pdbname+"_energy"+'.pth').to(torch.float32)
+            if x.shape[0] == 0 :continue        
+            y = torch.tensor([complexdict[pdbname]])
+            idx=torch.isnan(x)
+            x[idx] = 0.0
+            idx = torch.isinf(x)
+            x[idx] = float(0.0)
+            energy = energy[:21]
+            idx = torch.isnan(energy)
+            energy[idx] = 0.0
+            pos = x[:, -6:-3]
+            x = torch.cat([x[:,:10],x[:, 31:]],dim=1)
+            x = torch.cat([x[:, :(-6)], x[:, (-3):]], dim=1)
+            t = torch.abs(edge_attr)
+            data = Data(x=x, edge_index=edge_index,edge_attr=t,y=y,pos=pos,name=pdbname,energy=energy)
+            tmp.append(data)
+        featureList.append(tmp)
+        logging.info(len(featureList))
+    
     TIMESTAMP = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
     k = 5
     #交叉验证
@@ -95,9 +98,13 @@ if __name__ == '__main__':
     best_pcc = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_mae = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
     best_epoch = [0,0,0,0,0,0,0,0,0,0]
-    for i, (train_index, test_index) in enumerate(kf.split(np.array(labelList))):
+    for i in range(5):
         #preprocessing Standard 标准化
-        train_set,val_set=gcn_pickfold(featureList, train_index, test_index)
+        val_set = featureList[i]
+        train_set = []
+        for j in range(5):
+            if j!= i:
+                train_set += featureList[j]
         scaler = StandardScaler()
         train_x_tensor = torch.cat([data.x for data in train_set], dim=0)
         train_x_array = train_x_tensor.cpu().numpy()
@@ -110,9 +117,6 @@ if __name__ == '__main__':
             data.x = train_x_tensor_standardized[start_idx:end_idx]
             data = data.to(args.device)
             start_idx = end_idx
-
-        # with open(f'./tmp/scaler/standard_scaler{i}.picke','wb') as sc:
-        #     pickle.dump(scaler, sc)
 
         val_x_tensor = torch.cat([data.x for data in val_set], dim=0)
         val_x_array = val_x_tensor.cpu().numpy()
@@ -128,7 +132,7 @@ if __name__ == '__main__':
 
         net=Net(input_dim=args.dim
                         ,hidden_dim=64
-                        ,output_dim=32)
+                        ,output_dim=64)
         
         net.to(args.device)
 
@@ -136,8 +140,7 @@ if __name__ == '__main__':
         train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
         val_dataset = MyGCNDataset(val_set)
         val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
-        # criterion = torch.nn.MSELoss()
-        # criterion_pcc = PCCLoss()
+        
         criterion = torch.nn.HuberLoss(delta=args.alpha)
         optimizer = torch.optim.Adam(net.parameters(), lr = 1e-3, weight_decay = 1e-2)
         writer = SummaryWriter(args.logdir+TIMESTAMP+'val'+str(i))
@@ -160,11 +163,13 @@ if __name__ == '__main__':
             writer.add_scalar('val/loss', val_loss, epoch)
             writer.add_scalar('val/pcc', val_pcc, epoch)
             logging.info("Epoch "+ str(epoch)+ ": val Loss = %.4f"%(val_loss)+ ", val mae = %.4f"%(val_mae))
+
+            
             if math.fabs(val_pcc) > best_pcc[i]:
                 best_pcc[i]=math.fabs(val_pcc)
                 best_epoch[i]=epoch
                 best_mae[i] = val_mae
-                torch.save(net.state_dict(),f'{args.modeldir}PPA_Pred_gnn{i}_dim{args.dim}_foldx.pt')
+                torch.save(net.state_dict(),f'{args.modeldir}skempi_gnn{i}_dim{args.dim}_foldx.pt')
                 with open(f'{args.outdir}pred/result_{i}.txt','w') as f:
                     for j in range(0,len(val_truelist)):
                         f.write(names[j])
@@ -182,4 +187,3 @@ if __name__ == '__main__':
         logging.info('val_'+str(i)+' best_pcc = %.4f'%(best_pcc[i])+' , best_mae = %.4f'%(best_mae[i])+' , best_epoch : '+str(best_epoch[i]))
     print('pcc  :   '+str(pcc/k))
     print('mae  :   '+str(mae/k))
-            

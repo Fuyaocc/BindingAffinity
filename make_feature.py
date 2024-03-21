@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     complexdict={}
 
-    for line in open('/mnt/data/xukeyu/PPA_Pred/wt_pdbs.txt'):
+    for line in open('./data/dg_data/Antigen-Antibody.txt'):
         blocks=re.split('\t|\n',line)
         pdbname=blocks[0]
         complexdict[pdbname]=0.0
@@ -31,7 +31,7 @@ if __name__ == '__main__':
         graph_dict.add(file.split('.')[0][:-2])
     
     complex_mols = {}
-    with open('./data/pdb_mols.txt','r') as f:
+    with open('./data/dg_data/Antigen-Antibody.txt','r') as f:
         for line in f:
             blocks = re.split('\t|\n',line)
             mols_dict = {}
@@ -40,16 +40,7 @@ if __name__ == '__main__':
                     mols_dict[x] = i-1
             complex_mols[blocks[0]] = mols_dict
     
-    for name in complexdict.keys():
-        if len(name) == 4:continue
-        tmp = name.split('-')[0]
-        chains = tmp.split('_')[1:]
-        mols_dict = {}
-        for i in range(len(chains)):
-            for c in chains[i]:
-                mols_dict[c] = i
-        complex_mols[name[:4]] = mols_dict
-    
+    print(complex_mols)
     complex_mols['3cph']={'A':0,'B':1}
     
     resfeat = getAAOneHotPhys()
@@ -59,22 +50,21 @@ if __name__ == '__main__':
 
     for pdbname in complexdict.keys():
         pdbname = pdbname[:4]
-        if pdbname.lower() in graph_dict:continue
-        # pdb_path = '/mnt/data/xukeyu/PPA_Pred/PP/'+pdbname+'.ent.pdb'
-        # if pdbname != '3SE3_B_A-YB43M+NB44D+SB47L':continue
-        pdb_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'+pdbname+'.pdb'
+        # if pdbname.lower() in graph_dict:continue
+        pdb_path = '/mnt/data/xukeyu/PPA_Pred/nanobody_list_0202_wo_pkl/msa/'+pdbname+'/ranked_0.pdb'
+        # pdb_path = '/mnt/data/xukeyu/PPA_Pred/data/skempi/'+pdbname+'.pdb'
         seq_path = graph_path+pdbname+'_seq.picke'
         interfaceDict_path = graph_path+pdbname+'_interfaceDict.picke'
         connet_path = graph_path+pdbname+'_connect.picke'
-        if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
-        # if True:
+        # if os.path.exists(seq_path) == False or os.path.exists(interfaceDict_path) == False or os.path.exists(connet_path) == False:
+        if True:
             logging.info("generate graph:"+pdbname)
-            if len(pdbname) == 4:
-                mutation = None
-            else:
-                tmp = pdbname.split('-')[1]
-                mutation = tmp.split('+')
-            seq,interfaceDict,connect=getInterfaceRateAndSeq(pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis,mutation=mutation)
+            # if len(pdbname) == 4:
+            #     mutation = None
+            # else:
+            #     tmp = pdbname.split('-')[1]
+            #     mutation = tmp.split('+')
+            seq,interfaceDict,connect=getInterfaceRateAndSeq(pdbname,pdb_path,complex_mols[pdbname],interfaceDis=args.interfacedis,mutation=None)
             with open(seq_path,'wb') as f:
                 pickle.dump(seq, f)
             with open(interfaceDict_path,'wb') as f:
@@ -90,6 +80,7 @@ if __name__ == '__main__':
             with open(connet_path, 'rb') as file:
                 connect = pickle.load(file)
         chainlist=interfaceDict.keys()
+        print(seq)
         if len(chainlist) > 10:continue
         dssp_path = '../feats/dssp/'+pdbname+'.pickle'
         rd_path = '../feats/rd/'+pdbname+'_rd.pickle'
@@ -113,8 +104,8 @@ if __name__ == '__main__':
 
         node_feature={}
         logging.info("generate graph feat:"+pdbname)
-        # print(chainlist)
         for chain in chainlist:
+            print(chain)
             seq_chain = seq[pdbname+'_'+chain][0]
             idx_map = {}
             ss = 0
@@ -122,15 +113,17 @@ if __name__ == '__main__':
                 if seq_chain[o] != 'X':
                     idx_map[o] = ss
                     ss += 1
-            with open('../feats/sidechain/'+pdbname.lower()+'_'+chain+'_sidechain.picke', 'rb') as file:
+            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain.picke', 'rb') as file:
                 sidechain = pickle.load(file)
-            with open('../feats/sidechain/'+pdbname.lower()+'_'+chain+'_sidechain_center.picke', 'rb') as file:
+            with open('../feats/sidechain/'+pdbname+'_'+chain+'_sidechain_center.picke', 'rb') as file:
                 sidechain_center = pickle.load(file)
             reslist=interfaceDict[chain]
-            esm1f_feat=torch.load('../feats/esm/skempi/esmif1/'+pdbname.lower()+'_'+chain+'.pth')
+            esm1f_feat=torch.load('../feats/esm/pdbbind/esmif1/'+pdbname+'_'+chain+'.pth')
             esm1f_feat=F.avg_pool1d(esm1f_feat,16,16)
-            esm1v_feat=torch.load('../feats/esm/skempi/esm1v/'+pdbname.lower()+'_'+chain+'.pth')
+            esm1v_feat=torch.load('../feats/esm/pdbbind/esm1v/'+pdbname+'_'+chain+'.pth')
             esm1v_feat=F.avg_pool1d(esm1v_feat,40,40)
+            
+            print(len(sidechain_center))
             s = seq[pdbname+'_'+chain][1]
             for v in reslist:
                 chain_sign = [0.0]*10
@@ -166,6 +159,6 @@ if __name__ == '__main__':
         x = torch.tensor(node_features, dtype=torch.float32)
         edge_index=torch.tensor(edge_index,dtype=torch.long).t().contiguous()
         edge_attr=torch.tensor(edge_attr,dtype=torch.float32)
-        torch.save(x.to(torch.device('cpu')),feat_path+pdbname.lower()+"_x"+'.pth')
-        torch.save(edge_index.to(torch.device('cpu')),feat_path+pdbname.lower()+"_edge_index"+'.pth')
-        torch.save(edge_attr.to(torch.device('cpu')),feat_path+pdbname.lower()+"_edge_attr"+'.pth')    
+        torch.save(x.to(torch.device('cpu')),feat_path+pdbname+"_x"+'.pth')
+        torch.save(edge_index.to(torch.device('cpu')),feat_path+pdbname+"_edge_index"+'.pth')
+        torch.save(edge_attr.to(torch.device('cpu')),feat_path+pdbname+"_edge_attr"+'.pth')    

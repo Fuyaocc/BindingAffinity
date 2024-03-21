@@ -19,7 +19,7 @@
 4uyp	AC	BD	
 5c3f	A	B	
 2ybr	ADG	BEH	CFI	
-3h6g	AB	
+3h6g	A	B	
 5tgh	ACEG	BDFH	
 3d39	A	B	C	D	E	
 1uuz	AB	CD	
@@ -814,7 +814,7 @@
 1ty4	AB	CD	
 4hfk	AC	BD	
 5c0c	AF	BG	CH	DI	EJ	
-4u97	AB	
+4u97	A	B	
 3lh2	STVU	HIKJ	LMON	
 2xpx	A	B	
 2n73	A	B	
@@ -2334,7 +2334,7 @@
 4g59	AB	CD	
 2qj9	BA	DC	
 2v52	B	M	
-6b6u	AB	
+6b6u	A	B	
 1b2s	ABC	DEF	
 2v6x	A	B	
 2mre	A	B	
@@ -2850,3 +2850,13 @@
 6mnq	P	H	L	
 5ivx	A	B	E	F	P	
 3bg4	A	B	C	D	
+1f6m	ABEF	CDGH
+1h9d	AC	BD	EG	FH
+3cph	A	GH
+3bx7	A	C
+3daw	A	B
+3pc8	AB	CD
+3s9d	AC	BD
+4iz7	AC	B
+4m76	A	B
+4cpa	E	I

@@ -81,10 +81,8 @@ class ProteinCNN(nn.Module):
             x=self.conv1ds[i](x)
             x=x.permute(0, 2, 1)
             x,_=self.grus[i](x)
-        #(batch_size,seq_len,embedding_len)
         x=x.permute(0, 2, 1)
         x=self.avgpool1d(x)
-        # print(x1.shape)
         x=x.squeeze(dim=2)
 
         return x

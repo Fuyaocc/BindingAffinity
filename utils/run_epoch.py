@@ -47,10 +47,8 @@ def cnn_train(model,dataloader,optimizer,criterion,args):
     truelist = []
     epoch_loss = 0.0
     for batch_id,data in enumerate(dataloader):
-        x,y = data[0],data[1]
-        x.to(args.device)
-        y.to(args.device)
-        pre =  model(x)
+        x1,x2,y = data[0],data[1],data[2]
+        pre =  model(x1,x2)
         label = y.unsqueeze(-1).to(torch.float32).to(args.device)
         loss = criterion(pre,label)
         predlist += pre.squeeze(-1).cpu().tolist()
@@ -62,18 +60,16 @@ def cnn_train(model,dataloader,optimizer,criterion,args):
     epoch_loss /= (batch_id+1)
     return model,predlist,truelist,epoch_loss
 
-def cnn_predict(model,dataloader,criterion,args,i,epoch):
+def cnn_predict(model,dataloader,criterion,args):
     model.eval()
     epoch_loss=0
     predlist = []
     truelist = []
     names = []
     for batch_id,data in enumerate(dataloader):
-        x,y,name = data[0],data[1],data[2]
-        x.to(args.device)
-        y.to(args.device)
+        x1,x2,y,name = data[0],data[1],data[2],data[3]
+        pre =  model(x1,x2)
         label = y.unsqueeze(-1).to(torch.float32).to(args.device)
-        pre = model(x)
         loss = criterion(pre,label)
         predlist += pre.squeeze(-1).cpu().tolist()
         truelist += label.squeeze(-1).cpu().tolist()

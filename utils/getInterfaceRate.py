@@ -57,9 +57,9 @@ def addConnect(connect,x,y,dis):
 #     cmd.reinitialize()
 #     return interfaceRes,connect
 
-def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
+def getInterfaceRateAndSeq(pdbName,pdbPath,mols_dict,interfaceDis=12,mutation=None):
     #pdbName
-    pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
+    # pdbName=os.path.basename(os.path.splitext(pdbPath)[0])
     # pdbName=pdbName.split('.')[0].upper()
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("temp", pdbPath)
@@ -132,7 +132,7 @@ def getInterfaceRateAndSeq(pdbPath,mols_dict,interfaceDis=12,mutation=None):
     CACoor=np.array(CACoor)
     dis =  np.linalg.norm(CACoor[:, None, :] - CACoor[None, :, :], axis=-1)
     mask = dis<=interfaceDis
-    inside = dis<=5
+    inside = dis<=8
     resNumber=len(CAResName)
     connect={}
     interfaceRes={}
